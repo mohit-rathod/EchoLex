@@ -75,7 +75,7 @@ Browser microphone
 +-----------+-----------+                                               v
             | tokens                                          +-------------------+
             |                                                 | vLLM              |
-            |                                                 | Qwen2.5 7B AWQ    |
+            |                                                 | Qwen2.5 7B AWQ    |alk
             |                                                 +-------------------+
             v
 +-----------------------+
@@ -121,7 +121,7 @@ The assistant aggregator deliberately stays after audio output so interruption-a
 
 Speaches provides a local OpenAI-compatible speech server, Faster-Whisper STT, and Kokoro/Piper TTS. This starter runs it on CPU so the NVIDIA GPU is reserved for vLLM. The Pipecat STT integration can use the local OpenAI-compatible endpoint directly.
 
-For TTS, this repo contains `talkdoc.services.speaches_tts.SpeachesTTSService`. Do not replace it blindly with Pipecat's `OpenAITTSService`: that service validates OpenAI's fixed voice IDs, while Kokoro uses IDs such as `af_heart`.
+For TTS, this repo contains `echolex.services.speaches_tts.SpeachesTTSService`. Do not replace it blindly with Pipecat's `OpenAITTSService`: that service validates OpenAI's fixed voice IDs, while Kokoro uses IDs such as `af_heart`.
 
 ### Why Qdrant embedded first
 
@@ -164,7 +164,7 @@ The runtime stack is open source/open weight, but licenses are not all equally p
 ├── data/
 │   ├── documents/
 │   └── qdrant/
-├── src/talkdoc/
+├── src/echolex/
 │   ├── bot.py                    # Pipecat worker + WebRTC pipeline
 │   ├── chunking.py               # page-aware PDF extraction/chunking
 │   ├── config.py                 # typed environment configuration
@@ -205,7 +205,7 @@ docker compose logs -f speaches
 Run the included health check:
 
 ```bash
-uv run talkdoc-health
+uv run echolex-health
 ```
 
 Expected endpoints:
@@ -249,7 +249,7 @@ cp /path/to/manual.pdf data/documents/manual.pdf
 Index it:
 
 ```bash
-uv run talkdoc-ingest data/documents/manual.pdf --recreate
+uv run echolex-ingest data/documents/manual.pdf --recreate
 ```
 
 Or:
@@ -276,7 +276,7 @@ For scanned/image-only PDFs, PyMuPDF text extraction will return little or no us
 After both Docker services are healthy and the PDF is indexed:
 
 ```bash
-uv run python -m talkdoc.bot -t webrtc
+uv run python -m echolex.bot -t webrtc
 ```
 
 Pipecat's development runner defaults to WebRTC and port 7860. Open:
@@ -514,18 +514,18 @@ uv sync --dev
 
 # Start local inference
 docker compose up -d
-uv run talkdoc-health
+uv run echolex-health
 
 # Index one PDF
 cp /path/to/file.pdf data/documents/file.pdf
-uv run talkdoc-ingest data/documents/file.pdf --recreate
+uv run echolex-ingest data/documents/file.pdf --recreate
 
 # Tests
 uv run pytest -q
 uv run ruff check src tests
 
 # Run voice app
-uv run python -m talkdoc.bot -t webrtc
+uv run python -m echolex.bot -t webrtc
 
 # Browser UI
 # http://localhost:7860/client
