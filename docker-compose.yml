@@ -1,0 +1,73 @@
+name: talk-to-doc-local
+
+services:
+  vllm:
+    image: vllm/vllm-openai:v0.7.3
+    ipc: host
+    ports:
+      - "8000:8000"
+    volumes:
+      - vllm-hf-cache:/root/.cache/huggingface
+    environment:
+      HF_HOME: /root/.cache/huggingface
+    command:
+      - --model
+      - ${VLLM_MODEL:-Qwen/Qwen2.5-7B-Instruct-AWQ}
+      - --served-model-name
+      - ${LLM_MODEL_NAME:-qwen2.5-7b-instruct}
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --dtype
+      - auto
+      - --gpu-memory-utilization
+      - ${VLLM_GPU_MEMORY_UTILIZATION:-0.80}
+      - --max-model-len
+      - ${VLLM_MAX_MODEL_LEN:-8192}
+      - --max-num-seqs
+      - ${VLLM_MAX_NUM_SEQS:-8}
+      - --enable-prefix-caching
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  # One open-source server exposes BOTH STT and TTS endpoints.
+  # It runs on CPU by default so the GPU stays dedicated to vLLM.
+  speaches:
+    image: ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cpu
+    ports:
+      - "8001:8000"
+    volumes:
+      - speaches-hf-cache:/home/ubuntu/.cache/huggingface/hub
+    environment:
+      PRELOAD_MODELS: "[\"${STT_MODEL:-Systran/faster-distil-whisper-small.en}\",\"${TTS_MODEL:-speaches-ai/Kokoro-82M-v1.0-ONNX}\"]"
+      STT_MODEL_TTL: "-1"
+      TTS_MODEL_TTL: "-1"
+      WHISPER__INFERENCE_DEVICE: cpu
+      WHISPER__COMPUTE_TYPE: int8
+      LOG_LEVEL: info
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://127.0.0.1:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+volumes:
+  vllm-hf-cache:
+  speaches-hf-cache:

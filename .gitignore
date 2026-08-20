@@ -1,0 +1,10 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+data/qdrant/*
+!data/qdrant/.gitkeep
+data/documents/*
+!data/documents/.gitkeep
