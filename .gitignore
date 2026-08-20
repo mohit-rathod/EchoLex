@@ -8,3 +8,5 @@ data/qdrant/*
 !data/qdrant/.gitkeep
 data/documents/*
 !data/documents/.gitkeep
+data/
+*.pdf
