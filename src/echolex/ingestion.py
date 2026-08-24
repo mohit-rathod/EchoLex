@@ -14,6 +14,11 @@ from echolex.config import Settings
 
 
 def _client(settings: Settings) -> QdrantClient:
+    """Initialize and return a Qdrant client based on the provided settings.
+
+    Connects to a remote Qdrant server URL if provided, otherwise falls back
+    to a local embedded file-backed storage path.
+    """
     if settings.qdrant_url:
         return QdrantClient(url=settings.qdrant_url)
     settings.qdrant_path.mkdir(parents=True, exist_ok=True)
@@ -21,6 +26,7 @@ def _client(settings: Settings) -> QdrantClient:
 
 
 def _document_hash(path: Path) -> str:
+    """Compute a secure SHA-256 hash checksum of a file in binary blocks."""
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for block in iter(lambda: handle.read(1024 * 1024), b""):
@@ -29,11 +35,21 @@ def _document_hash(path: Path) -> str:
 
 
 def _point_id(document_hash: str, chunk: TextChunk) -> str:
+    """Generate a deterministic UUID version 5 point ID for a chunk based on its unique content features."""
     key = f"{document_hash}:{chunk.page}:{chunk.chunk_index}:{chunk.text}"
     return str(uuid.uuid5(uuid.NAMESPACE_URL, key))
 
 
 def ingest_pdf(pdf_path: str | Path, *, recreate: bool = False) -> int:
+    """Extract, encode, and index a PDF document's text chunks into a Qdrant vector collection.
+
+    Args:
+        pdf_path: File system path pointing to the PDF document to ingest.
+        recreate: If True, deletes and recreates the target Qdrant collection before indexing.
+
+    Returns:
+        The total count of text chunks successfully indexed.
+    """
     settings = Settings.from_env()
     settings.validate()
     path = Path(pdf_path).resolve()
@@ -48,9 +64,10 @@ def ingest_pdf(pdf_path: str | Path, *, recreate: bool = False) -> int:
 
     logger.info("Loading embedding model {}", settings.embedding_model)
     encoder = SentenceTransformer(settings.embedding_model, device=settings.embedding_device)
-    dimension = int(encoder.get_sentence_embedding_dimension())
+    dimension = int(encoder.get_embedding_dimension())
     client = _client(settings)
 
+    # Check if the target collection exists and handle recreation requests
     exists = client.collection_exists(settings.qdrant_collection)
     if recreate and exists:
         logger.warning("Recreating collection {}", settings.qdrant_collection)
@@ -68,6 +85,8 @@ def ingest_pdf(pdf_path: str | Path, *, recreate: bool = False) -> int:
 
     document_hash = _document_hash(path)
     batch_size = 64
+    
+    # Process and upsert chunks into Qdrant in manageable batches
     for start in range(0, len(chunks), batch_size):
         batch = chunks[start : start + batch_size]
         texts = [item.text for item in batch]
@@ -104,6 +123,7 @@ def ingest_pdf(pdf_path: str | Path, *, recreate: bool = False) -> int:
 
 
 def main() -> None:
+    """Parse command-line arguments and trigger the PDF ingestion routine."""
     parser = argparse.ArgumentParser(description="Index a PDF into local Qdrant.")
     parser.add_argument("pdf", help="Path to a PDF file")
     parser.add_argument(

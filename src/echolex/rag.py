@@ -11,11 +11,20 @@ from sentence_transformers import SentenceTransformer
 from echolex.config import Settings
 
 
+# Standard query prefix recommended by BGE embedding models to optimize retrieval relevance
 BGE_QUERY_PROMPT = "Represent this sentence for searching relevant passages: "
 
 
 @dataclass(frozen=True)
 class RetrievedChunk:
+    """Immutable data structure representing a relevant document segment returned by the retriever.
+
+    Attributes:
+        text: The text content of the retrieved chunk.
+        page: The 1-based page number where the text originates.
+        source: The file name of the source document.
+        score: The vector similarity score associated with this result.
+    """
     text: str
     page: int
     source: str
@@ -26,6 +35,11 @@ class DocumentRetriever:
     """Synchronous retriever intentionally wrapped by asyncio.to_thread in Pipecat."""
 
     def __init__(self, settings: Settings):
+        """Initialize the document retriever with configuration settings, embedding model, and Qdrant client.
+
+        Args:
+            settings: The application configuration settings instance.
+        """
         self.settings = settings
         logger.info("Loading embedding model {}", settings.embedding_model)
         self.encoder = SentenceTransformer(
@@ -36,6 +50,7 @@ class DocumentRetriever:
 
     @staticmethod
     def _build_client(settings: Settings) -> QdrantClient:
+        """Construct and return a Qdrant client using remote URL connection or local embedded paths."""
         if settings.qdrant_url:
             logger.info("Using Qdrant server at {}", settings.qdrant_url)
             return QdrantClient(url=settings.qdrant_url)
@@ -46,6 +61,18 @@ class DocumentRetriever:
         return QdrantClient(path=str(path))
 
     def retrieve(self, query: str, *, top_k: int | None = None) -> list[RetrievedChunk]:
+        """Perform a semantic vector similarity search against the Qdrant database.
+
+        Encodes the search query with the required BGE prompt prefix, queries the collection,
+        and filters points against the configured score threshold.
+
+        Args:
+            query: The user's search text query string.
+            top_k: Optional override for the maximum number of chunks to return.
+
+        Returns:
+            A list of filtered and structured RetrievedChunk objects.
+        """
         query = query.strip()
         if not query:
             return []
@@ -66,6 +93,7 @@ class DocumentRetriever:
         chunks: list[RetrievedChunk] = []
         for point in result.points:
             score = float(point.score)
+            # Skip results that fall below the minimum relevance confidence threshold
             if score < self.settings.rag_score_threshold:
                 continue
             payload = point.payload or {}
@@ -85,6 +113,10 @@ class DocumentRetriever:
 
 @lru_cache(maxsize=1)
 def get_retriever() -> DocumentRetriever:
+    """Retrieve or initialize a cached singleton instance of the DocumentRetriever.
+
+    Validates environment settings on initial creation to ensure safe operational boundaries.
+    """
     settings = Settings.from_env()
     settings.validate()
     return DocumentRetriever(settings)

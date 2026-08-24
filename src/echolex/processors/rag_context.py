@@ -14,6 +14,10 @@ from echolex.rag import DocumentRetriever, RetrievedChunk
 
 
 def _message_text(message: dict[str, Any]) -> str:
+    """Extract and normalize the text content from an LLM message dictionary.
+
+    Handles both plain string contents and structured content lists (e.g., multimodal blocks).
+    """
     content = message.get("content", "")
     if isinstance(content, str):
         return content.strip()
@@ -27,6 +31,10 @@ def _message_text(message: dict[str, Any]) -> str:
 
 
 def _last_user_index(messages: list[Any]) -> int | None:
+    """Find the index of the most recent message with the 'user' role.
+
+    Searches backwards through the message sequence for efficiency.
+    """
     for index in range(len(messages) - 1, -1, -1):
         message = messages[index]
         if isinstance(message, dict) and message.get("role") == "user":
@@ -35,6 +43,10 @@ def _last_user_index(messages: list[Any]) -> int | None:
 
 
 def _build_grounded_user_message(query: str, chunks: list[RetrievedChunk]) -> str:
+    """Construct an adversarial-safe prompt enclosing retrieved documents within isolated XML-style tags.
+
+    Instructs the LLM to treat retrieved excerpts strictly as reference data rather than instructions.
+    """
     if chunks:
         excerpts = "\n\n".join(
             f"<excerpt source={chunk.source!r} page={chunk.page}>\n"
@@ -75,12 +87,18 @@ class RAGContextProcessor(FrameProcessor):
         self._timeout_seconds = timeout_seconds
 
     async def process_frame(self, frame: Frame, direction: FrameDirection) -> None:
+        """Intercept downstream LLM context frames to inject retrieved RAG context.
+
+        Non-context frames or frames moving in other directions are passed through unmodified.
+        """
         await super().process_frame(frame, direction)
 
+        # Pass through unless it's a downstream LLM context request
         if direction != FrameDirection.DOWNSTREAM or not isinstance(frame, LLMContextFrame):
             await self.push_frame(frame, direction)
             return
 
+        # Locate the user message to use as the query string
         messages = frame.context.get_messages()
         user_index = _last_user_index(messages)
         if user_index is None:
@@ -92,6 +110,7 @@ class RAGContextProcessor(FrameProcessor):
             await self.push_frame(frame, direction)
             return
 
+        # Perform document retrieval with a strict timeout boundary
         query = _message_text(user_message)
         if not query:
             await self.push_frame(frame, direction)
@@ -121,6 +140,7 @@ class RAGContextProcessor(FrameProcessor):
         augmented_user["content"] = _build_grounded_user_message(query, chunks)
         augmented_messages[user_index] = augmented_user
 
+        # Create a transient context so history remains clean of injected document snippets
         transient_context = LLMContext(
             messages=augmented_messages,
             tools=frame.context.tools,
