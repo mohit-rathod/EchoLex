@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import argparse
 import hashlib
 import uuid
 from pathlib import Path
@@ -9,11 +8,13 @@ from loguru import logger
 from qdrant_client import QdrantClient, models
 from sentence_transformers import SentenceTransformer
 
-from echolex.chunking import TextChunk, extract_pdf_chunks
-from echolex.config import Settings
+from echolex.core.config import Settings
+from echolex.domain.models import TextChunk
+from echolex.ingestion.chunking import extract_pdf_chunks
 
 
 def _client(settings: Settings) -> QdrantClient:
+    """Initialize Qdrant from a remote URL or embedded local storage."""
     if settings.qdrant_url:
         return QdrantClient(url=settings.qdrant_url)
     settings.qdrant_path.mkdir(parents=True, exist_ok=True)
@@ -21,6 +22,7 @@ def _client(settings: Settings) -> QdrantClient:
 
 
 def _document_hash(path: Path) -> str:
+    """Compute a SHA-256 checksum for deterministic document identity."""
     digest = hashlib.sha256()
     with path.open("rb") as handle:
         for block in iter(lambda: handle.read(1024 * 1024), b""):
@@ -29,11 +31,13 @@ def _document_hash(path: Path) -> str:
 
 
 def _point_id(document_hash: str, chunk: TextChunk) -> str:
+    """Generate the original deterministic UUID5 identifier for a chunk."""
     key = f"{document_hash}:{chunk.page}:{chunk.chunk_index}:{chunk.text}"
     return str(uuid.uuid5(uuid.NAMESPACE_URL, key))
 
 
 def ingest_pdf(pdf_path: str | Path, *, recreate: bool = False) -> int:
+    """Extract, embed, and index one PDF into the configured Qdrant collection."""
     settings = Settings.from_env()
     settings.validate()
     path = Path(pdf_path).resolve()
@@ -48,7 +52,7 @@ def ingest_pdf(pdf_path: str | Path, *, recreate: bool = False) -> int:
 
     logger.info("Loading embedding model {}", settings.embedding_model)
     encoder = SentenceTransformer(settings.embedding_model, device=settings.embedding_device)
-    dimension = int(encoder.get_sentence_embedding_dimension())
+    dimension = int(encoder.get_embedding_dimension())
     client = _client(settings)
 
     exists = client.collection_exists(settings.qdrant_collection)
@@ -68,6 +72,7 @@ def ingest_pdf(pdf_path: str | Path, *, recreate: bool = False) -> int:
 
     document_hash = _document_hash(path)
     batch_size = 64
+
     for start in range(0, len(chunks), batch_size):
         batch = chunks[start : start + batch_size]
         texts = [item.text for item in batch]
@@ -101,19 +106,3 @@ def ingest_pdf(pdf_path: str | Path, *, recreate: bool = False) -> int:
     client.close()
     logger.success("Indexed {} chunks from {}", len(chunks), path.name)
     return len(chunks)
-
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Index a PDF into local Qdrant.")
-    parser.add_argument("pdf", help="Path to a PDF file")
-    parser.add_argument(
-        "--recreate",
-        action="store_true",
-        help="Delete and recreate the collection first. Recommended for the single-document starter.",
-    )
-    args = parser.parse_args()
-    ingest_pdf(args.pdf, recreate=args.recreate)
-
-
-if __name__ == "__main__":
-    main()

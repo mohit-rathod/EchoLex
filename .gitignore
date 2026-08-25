@@ -1,11 +1,33 @@
+# Local environment / secrets
 .env
+.env.*
+!.env.example
+
+# Python
 .venv/
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .ruff_cache/
+.mypy_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Runtime document/vector data
+data/*
+!data/documents/.gitkeep
 data/qdrant/*
 !data/qdrant/.gitkeep
-data/documents/*
-!data/documents/.gitkeep
-data/*
+
+*.zip

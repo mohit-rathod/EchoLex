@@ -1,4 +1,4 @@
-"""Backward-compatible Speaches TTS import path."""
+"""Speech-service adapters."""
 
 from echolex.integrations.speech.speaches_tts import SpeachesTTSService
 

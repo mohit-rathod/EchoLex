@@ -1,90 +1,106 @@
 # Talk-To-Your-Document
 
-A fully local, open-source voice RAG starter built with Pipecat, vLLM, Speaches, SentenceTransformers, and Qdrant.
+A fully local, open-source voice RAG application built with Pipecat, vLLM, Speaches, SentenceTransformers, Qdrant, and PyMuPDF.
 
-Upload a PDF, index it locally, then ask questions by voice. The system transcribes the question, retrieves relevant document context, generates a grounded answer with a local LLM, and streams the response back as speech.
-
-No proprietary inference APIs are required after model weights have been downloaded.
-
-## Use case
-
-This repo is designed for building local voice assistants that can answer questions from private documents.
-
-Typical use cases include:
-
-* Internal knowledge assistants
-* Policy and compliance document Q&A
-* Technical manual assistants
-* Private research or enterprise document search
-* Offline or air-gapped voice RAG prototypes
+This version keeps the existing runtime behavior intact while reorganizing the repository into explicit production-oriented module boundaries.
 
 ## Runtime flow
 
-```
+```text
 Microphone
   -> Pipecat + Silero VAD
-  -> Faster-Whisper STT
+  -> Faster-Whisper STT via Speaches
   -> BGE query embedding
   -> Qdrant retrieval
   -> vLLM / Qwen2.5 response
-  -> Kokoro TTS
+  -> Kokoro TTS via Speaches
   -> Browser audio
-
 ```
 
-Document ingestion runs separately:
+Document ingestion remains a separate flow:
 
-```
+```text
 PDF -> PyMuPDF -> page-aware chunks -> BGE embeddings -> Qdrant
-
 ```
 
-## What is in this repo
+## Repository structure
 
-```
+```text
 .
-├── docker-compose.yml          # Local vLLM + Speaches services
-├── .env.example                # Runtime configuration
+├── .dockerignore
+├── .env.example
+├── .gitignore
+├── ARCHITECTURE.md
 ├── Makefile
+├── README.md
+├── docker-compose.yml
 ├── pyproject.toml
+├── uv.lock
 ├── data/
-│   ├── documents/              # PDFs to index
-│   └── qdrant/                 # Local persistent vector store
+│   ├── documents/
+│   │   └── .gitkeep
+│   └── qdrant/
+│       └── .gitkeep
 ├── src/echolex/
-│   ├── bot.py                  # Pipecat WebRTC voice pipeline
-│   ├── chunking.py             # PDF extraction and chunking
-│   ├── config.py               # Environment configuration
-│   ├── healthcheck.py          # Service readiness checks
-│   ├── ingestion.py            # PDF -> embeddings -> Qdrant
-│   ├── rag.py                  # Retrieval layer
-│   ├── processors/
-│   │   └── rag_context.py      # Injects retrieved context per turn
-│   └── services/
-│       └── speaches_tts.py     # Local streaming TTS adapter
+│   ├── __init__.py
+│   ├── bot.py                       # Stable Pipecat module entrypoint
+│   ├── chunking.py                  # Compatibility import
+│   ├── config.py                    # Compatibility import
+│   ├── healthcheck.py               # Compatibility entrypoint
+│   ├── rag.py                       # Compatibility import
+│   ├── cli/
+│   │   ├── health.py
+│   │   └── ingest.py
+│   ├── core/
+│   │   ├── config.py
+│   │   └── prompts.py
+│   ├── domain/
+│   │   └── models.py
+│   ├── ingestion/
+│   │   ├── __init__.py
+│   │   ├── __main__.py
+│   │   ├── chunking.py
+│   │   └── service.py
+│   ├── integrations/
+│   │   └── speech/
+│   │       └── speaches_tts.py
+│   ├── retrieval/
+│   │   └── service.py
+│   ├── voice/
+│   │   ├── pipeline.py
+│   │   └── processors/
+│   │       └── rag_context.py
+│   ├── processors/                  # Compatibility imports
+│   └── services/                    # Compatibility imports
 └── tests/
-    └── test_chunking.py
-
+    ├── test_chunking.py
+    ├── test_config.py
+    └── test_public_imports.py
 ```
 
-### Main components
+See `ARCHITECTURE.md` for module ownership, dependency direction, and intentionally deferred runtime improvements.
 
-* **Pipecat** for the real-time voice pipeline
-* **Speaches** for local Faster-Whisper STT and Kokoro TTS
-* **vLLM** for local OpenAI-compatible LLM inference
-* **Qwen2.5-7B-Instruct-AWQ** as the default LLM
-* **BAAI/bge-small-en-v1.5** for embeddings
-* **Qdrant embedded mode** for local persistent retrieval
-* **PyMuPDF** for PDF parsing and page-aware chunking
+## Design principles in this refactor
+
+- Runtime/business behavior is intentionally unchanged.
+- Domain data models are framework-independent.
+- Configuration and prompt constants live under `core`.
+- Ingestion and retrieval are separate features instead of root-level modules.
+- Pipecat-specific code lives under the voice boundary.
+- Speaches is treated as an integration adapter.
+- CLI parsing is separated from application logic.
+- Original import/entrypoint paths remain available through thin compatibility modules.
+- Local secrets, vector-store state, PDFs, and Python bytecode are excluded from the repository.
 
 ## Prerequisites
 
 Recommended development environment:
 
-* Linux or WSL2
-* Docker Engine + Docker Compose
-* NVIDIA GPU with NVIDIA Container Toolkit for vLLM
-* Python 3.11+
-* uv
+- Linux or WSL2
+- Docker Engine + Docker Compose
+- NVIDIA GPU with NVIDIA Container Toolkit for vLLM
+- Python 3.11+
+- `uv`
 
 The supplied Qwen2.5-7B AWQ setup is best suited to a GPU with roughly 12 GB VRAM or more. Lower-memory GPUs may require reducing model context length or concurrency.
 
@@ -95,103 +111,93 @@ Create the local environment:
 ```bash
 cp .env.example .env
 uv sync --dev
-
 ```
 
-Start the local inference services:
+Start local inference services:
 
 ```bash
 docker compose up -d
-
 ```
 
-Verify that vLLM and Speaches are healthy:
+Verify vLLM and Speaches readiness:
 
 ```bash
 uv run echolex-health
-
 ```
 
-Useful endpoints:
+Default local endpoints:
 
-* **vLLM:** `[http://127.0.0.1:8000/v1](http://127.0.0.1:8000/v1)`
-* **Speaches:** `[http://127.0.0.1:8001/v1](http://127.0.0.1:8001/v1)`
+- vLLM: `http://127.0.0.1:8000/v1`
+- Speaches: `http://127.0.0.1:8001/v1`
 
 ## Index a PDF
 
-Copy a PDF into the repository:
+Copy a PDF into the local document directory:
 
 ```bash
 cp /path/to/manual.pdf data/documents/manual.pdf
-
 ```
 
-Create the local vector index:
+Create the vector index:
 
 ```bash
 uv run echolex-ingest data/documents/manual.pdf --recreate
-
 ```
 
 or:
 
 ```bash
 make ingest PDF=data/documents/manual.pdf
-
 ```
 
-The ingestion pipeline extracts page-aware text, creates BGE embeddings, and stores the resulting chunks and page metadata in Qdrant.
+## Run the voice application
 
-## Run the voice app
-
-Once the services are healthy and a PDF has been indexed:
+Once inference services are healthy and a PDF has been indexed:
 
 ```bash
 uv run python -m echolex.bot -t webrtc
-
 ```
 
 Open:
 
-`http://localhost:7860/client`
-
-Allow microphone access, connect, and ask a question whose answer is contained in the indexed PDF.
-
-**Example:**
-
-> **User:** What does this document say about the retry policy?
-
-```
-Voice -> STT -> document retrieval -> local LLM -> TTS -> voice response
-
+```text
+http://localhost:7860/client
 ```
 
-Retrieved document excerpts are injected only for the current LLM request, so RAG context does not accumulate permanently in conversation history.
-
-If no relevant context is found, the assistant is instructed to say that the document does not provide enough information instead of falling back to unsupported model knowledge.
+Retrieved excerpts are injected only into the current LLM request. They are not permanently appended to conversation history.
 
 ## Development commands
 
 ```bash
-# Run tests
+# Tests
 uv run pytest -q
 
 # Lint
 uv run ruff check src tests
 
-# Check services
+# Local service health
+uv run echolex-health
+
+# Infrastructure lifecycle
+docker compose up -d
 docker compose ps
 docker compose logs -f vllm
 docker compose logs -f speaches
-
-# Stop local services
 docker compose down
-
 ```
 
-## Notes
+## Repository hygiene
 
-* The first run downloads model weights; once cached, inference is local.
-* Scanned/image-only PDFs require an OCR step before ingestion.
-* Embedded Qdrant is intended for local/single-process development. Move to a standalone Qdrant service before running multiple workers against the same index.
-* PyMuPDF is AGPL/commercial dual-licensed. Review `LICENSE_NOTES.md` if that license is not suitable for your deployment.
+The refactored repository intentionally does not ship:
+
+- `.env`
+- indexed Qdrant data
+- uploaded/source PDFs
+- `__pycache__`
+- local test/lint caches
+
+Use `.env.example` as the checked-in configuration template and populate local runtime data under `data/`.
+
+## Deferred engineering work
+
+This pass is structural only. Runtime shortcomings such as standalone Qdrant deployment, retry/circuit-breaker policies, OCR, multi-document lifecycle, authentication, richer observability, retrieval tuning, and model/service lifecycle management are deliberately left for later changes so they can be implemented and benchmarked independently.
