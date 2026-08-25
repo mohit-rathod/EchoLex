@@ -1,0 +1,13 @@
+.git
+.gitignore
+.env
+.venv
+__pycache__
+.pytest_cache
+.ruff_cache
+.mypy_cache
+build
+dist
+*.egg-info
+data/documents/*
+data/qdrant/*

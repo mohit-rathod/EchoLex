@@ -1,4 +1,4 @@
-"""Backward-compatible configuration import path."""
+"""Cross-cutting application configuration and constants."""
 
 from echolex.core.config import Settings
 
