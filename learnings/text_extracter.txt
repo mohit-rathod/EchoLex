@@ -1,0 +1,8 @@
+| Library         | Best for                                | Current use case                |
+| --------------- | --------------------------------------- | ------------------------------- |
+| PyMuPDF         | Fast structured PDF extraction          | Best                            |
+| PyMuPDF4LLM     | RAG-ready Markdown/layout extraction    | Worth testing                   |
+| pdfplumber      | Tables and detailed positional analysis | Good secondary tool             |
+| pypdf           | Basic text extraction/PDF manipulation  | Too low-level for this pipeline |
+
+

@@ -46,8 +46,6 @@ services:
       retries: 30
       start_period: 60s
 
-  # One open-source server exposes BOTH STT and TTS endpoints.
-  # It runs on CPU by default so the GPU stays dedicated to vLLM.
   speaches:
     image: ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cpu
     ports:
