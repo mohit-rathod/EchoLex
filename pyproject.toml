@@ -1,7 +1,7 @@
 [project]
 name = "talk-to-doc-local"
 version = "0.1.0"
-description = "Fully local Talk-To-Your-Document voice RAG app with Pipecat, vLLM, Speaches, Qdrant, and SentenceTransformers."
+description = "Fully local Talk-To-Your-Document voice RAG app with Pipecat, vLLM, vLLM-Omni, Qdrant, and SentenceTransformers."
 readme = "README.md"
 requires-python = ">=3.11,<3.15"
 dependencies = [

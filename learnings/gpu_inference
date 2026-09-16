@@ -23,3 +23,5 @@ Plan:
 | Embeddings   | `BAAI/bge-small-en-v1.5`               | CPU                       | One query embedding per turn; CPU is sufficient                   |
 | Vector DB    | Qdrant                                 | CPU                       | No reason to consume GPU                                          |
 | PDF/chunking | PyMuPDF                                | CPU                       | Naturally CPU-bound                                               |
+
+I will put STT, LLM and TTS into GPU memory, and will keep the rest in CPU.

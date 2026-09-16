@@ -1,5 +1,7 @@
 """Speech-service adapters."""
 
-from echolex.integrations.speech.speaches_tts import SpeachesTTSService
+from echolex.integrations.speech.vllm_omni_tts import (
+    VLLMOmniTTSService,
+)
 
-__all__ = ["SpeachesTTSService"]
+__all__ = ["VLLMOmniTTSService"]

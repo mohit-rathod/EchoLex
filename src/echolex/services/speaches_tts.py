@@ -1,5 +1,9 @@
-"""Backward-compatible Speaches TTS import path."""
+"""Backward-compatible TTS import path."""
 
-from echolex.integrations.speech.speaches_tts import SpeachesTTSService
+from echolex.integrations.speech.vllm_omni_tts import (
+    VLLMOmniTTSService,
+)
 
-__all__ = ["SpeachesTTSService"]
+SpeachesTTSService = VLLMOmniTTSService
+
+__all__ = ["SpeachesTTSService", "VLLMOmniTTSService"]

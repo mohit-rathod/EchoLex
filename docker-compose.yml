@@ -1,20 +1,25 @@
 name: talk-to-doc-local
 
 services:
-  vllm:
-    image: vllm/vllm-openai:v0.7.3
+  vllm-llm:
+    image: vllm/vllm-openai:v0.28.0
     ipc: host
+
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
+
     volumes:
       - vllm-hf-cache:/root/.cache/huggingface
+
     environment:
       HF_HOME: /root/.cache/huggingface
+
+      VLLM_USE_V2_MODEL_RUNNER: "${VLLM_USE_V2_MODEL_RUNNER:-0}"
+
     command:
-      - --model
-      - ${VLLM_MODEL:-Qwen/Qwen2.5-7B-Instruct-AWQ}
+      - Qwen/Qwen3-4B-AWQ
       - --served-model-name
-      - ${LLM_MODEL_NAME:-qwen2.5-7b-instruct}
+      - qwen3-4b-awq
       - --host
       - 0.0.0.0
       - --port
@@ -22,12 +27,13 @@ services:
       - --dtype
       - auto
       - --gpu-memory-utilization
-      - ${VLLM_GPU_MEMORY_UTILIZATION:-0.80}
+      - "0.30"
       - --max-model-len
-      - ${VLLM_MAX_MODEL_LEN:-8192}
+      - "8192"
       - --max-num-seqs
-      - ${VLLM_MAX_NUM_SEQS:-8}
-      - --enable-prefix-caching
+      - "1"
+      - --enforce-eager
+
     deploy:
       resources:
         reservations:
@@ -35,37 +41,143 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)\"",
+          "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)\"",
         ]
       interval: 10s
       timeout: 5s
       retries: 30
-      start_period: 60s
+      start_period: 90s
 
-  speaches:
-    image: ghcr.io/speaches-ai/speaches:0.9.0-rc.3-cpu
+
+  vllm-stt:
+
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.vllm-stt
+
+    image: echolex-vllm-stt:v0.28.0
+    ipc: host
+
+    depends_on:
+      vllm-llm:
+        condition: service_healthy
+
     ports:
-      - "8001:8000"
+      - "127.0.0.1:8001:8000"
+
     volumes:
-      - speaches-hf-cache:/home/ubuntu/.cache/huggingface/hub
+      - vllm-hf-cache:/root/.cache/huggingface
+
     environment:
-      PRELOAD_MODELS: "[\"${STT_MODEL:-Systran/faster-distil-whisper-small.en}\",\"${TTS_MODEL:-speaches-ai/Kokoro-82M-v1.0-ONNX}\"]"
-      STT_MODEL_TTL: "-1"
-      TTS_MODEL_TTL: "-1"
-      WHISPER__INFERENCE_DEVICE: cpu
-      WHISPER__COMPUTE_TYPE: int8
-      LOG_LEVEL: info
+      HF_HOME: /root/.cache/huggingface
+      VLLM_USE_V2_MODEL_RUNNER: "${VLLM_USE_V2_MODEL_RUNNER:-0}"
+
+    command:
+      - Qwen/Qwen3-ASR-0.6B
+      - --served-model-name
+      - qwen3-asr-0.6b
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --dtype
+      - bfloat16
+      - --max-model-len
+      - "3072"
+      - --gpu-memory-utilization
+      - "0.20"
+      - --max-num-seqs
+      - "1"
+      - --enforce-eager
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
     healthcheck:
-      test: ["CMD", "curl", "--fail", "http://127.0.0.1:8000/health"]
+      test:
+        [
+          "CMD-SHELL",
+          "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)\"",
+        ]
       interval: 10s
       timeout: 5s
-      retries: 20
-      start_period: 30s
+      retries: 30
+      start_period: 90s
+
+
+  vllm-tts:
+    image: vllm/vllm-omni:v0.28.0
+    ipc: host
+
+    depends_on:
+      vllm-stt:
+        condition: service_healthy
+
+    ports:
+      - "127.0.0.1:8002:8000"
+
+    volumes:
+      - vllm-hf-cache:/root/.cache/huggingface
+
+      - type: bind
+        source: ./deploy/qwen3_tts_16gb.yaml
+        target: /etc/vllm/qwen3_tts_16gb.yaml
+        read_only: true
+        bind:
+          create_host_path: false
+
+    environment:
+      HF_HOME: /root/.cache/huggingface
+      VLLM_USE_V2_MODEL_RUNNER: "${VLLM_USE_V2_MODEL_RUNNER:-0}"
+
+    command:
+    - vllm
+    - serve
+    - Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice
+    - --omni
+    - --host
+    - 0.0.0.0
+    - --port
+    - "8000"
+    - --dtype
+    - bfloat16
+    - --gpu-memory-utilization
+    - "0.20"
+    - --max-model-len
+    - "3072"
+    - --max-num-seqs
+    - "1"
+    - --enforce-eager
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 40
+      start_period: 120s
+
 
 volumes:
   vllm-hf-cache:
-  speaches-hf-cache:

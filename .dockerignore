@@ -11,3 +11,5 @@ dist
 *.egg-info
 data/documents/*
 data/qdrant/*
+!certs/
+!certs/zscaler-ca-bundle.pemdocker 
