@@ -1,0 +1,69 @@
+services:
+  lgtm:
+    image: grafana/otel-lgtm:latest
+    container_name: talk-to-doc-lgtm
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"   # Grafana
+      - "127.0.0.1:9090:9090"   # Prometheus UI/API
+      - "127.0.0.1:4317:4317"   # OTLP gRPC
+      - "127.0.0.1:4318:4318"   # OTLP HTTP
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-admin}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-admin}"
+      PROMETHEUS_EXTRA_ARGS: "--storage.tsdb.retention.time=7d"
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /otel-lgtm/grafana/conf/provisioning/dashboards/custom/model-observability.json
+    volumes:
+      - lgtm-data:/data
+      - ./observability/prometheus.yaml:/otel-lgtm/prometheus.yaml:ro
+      - ./observability/grafana/model-observability.json:/otel-lgtm/grafana/conf/provisioning/dashboards/custom/model-observability.json:ro
+      - ./observability/grafana/dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/custom.yaml:ro
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: talk-to-doc-node-exporter
+    restart: unless-stopped
+    pid: host
+    command:
+      - --path.rootfs=/host
+      - --collector.processes
+    volumes:
+      - /:/host:ro
+    expose:
+      - "9100"
+
+  gpu-exporter:
+    image: utkuozdemir/nvidia_gpu_exporter:latest
+    container_name: talk-to-doc-gpu-exporter
+    restart: unless-stopped
+    environment:
+      NVIDIA_DRIVER_CAPABILITIES: utility
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    expose:
+      - "9835"
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.52.1
+    container_name: talk-to-doc-cadvisor
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /dev/disk:/dev/disk:ro
+    expose:
+      - "8080"
+
+volumes:
+  lgtm-data:

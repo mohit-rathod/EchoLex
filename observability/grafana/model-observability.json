@@ -1,0 +1,138 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Host CPU Usage",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 0},
+      "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100}, "overrides": []},
+      "targets": [{"expr": "100 * (1 - avg(rate(node_cpu_seconds_total{mode=\"idle\"}[1m])))", "legendFormat": "CPU", "refId": "A"}]
+    },
+    {
+      "type": "stat",
+      "title": "Host Memory Usage",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 0},
+      "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100}, "overrides": []},
+      "targets": [{"expr": "100 * (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes))", "legendFormat": "RAM", "refId": "A"}]
+    },
+    {
+      "type": "stat",
+      "title": "GPU Utilization",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 5, "w": 6, "x": 12, "y": 0},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}, "overrides": []},
+      "targets": [{"expr": "max(nvidia_smi_utilization_gpu_ratio)", "legendFormat": "GPU", "refId": "A"}]
+    },
+    {
+      "type": "stat",
+      "title": "GPU Memory Usage",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 5, "w": 6, "x": 18, "y": 0},
+      "fieldConfig": {"defaults": {"unit": "percent", "min": 0, "max": 100}, "overrides": []},
+      "targets": [{"expr": "100 * max(nvidia_smi_memory_used_bytes / nvidia_smi_memory_total_bytes)", "legendFormat": "VRAM", "refId": "A"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "GPU Temperature / Power",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "targets": [
+        {"expr": "nvidia_smi_temperature_gpu", "legendFormat": "temperature C", "refId": "A"},
+        {"expr": "nvidia_smi_power_draw_watts", "legendFormat": "power W", "refId": "B"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "vLLM Running / Waiting Requests",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 5},
+      "targets": [
+        {"expr": "sum by (job) (vllm:num_requests_running)", "legendFormat": "{{job}} running", "refId": "A"},
+        {"expr": "sum by (job) (vllm:num_requests_waiting)", "legendFormat": "{{job}} waiting", "refId": "B"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "vLLM Token Throughput",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 13},
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "targets": [
+        {"expr": "sum by (job) (rate(vllm:prompt_tokens_total[1m]))", "legendFormat": "{{job}} prompt tok/s", "refId": "A"},
+        {"expr": "sum by (job) (rate(vllm:generation_tokens_total[1m]))", "legendFormat": "{{job}} generation tok/s", "refId": "B"}
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "vLLM KV Cache Usage",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 13},
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1}, "overrides": []},
+      "targets": [{"expr": "max by (job) (vllm:kv_cache_usage_perc)", "legendFormat": "{{job}}", "refId": "A"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "p95 Time To First Token (TTFT)",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 21},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (job, le) (rate(vllm:time_to_first_token_seconds_bucket[5m])))", "legendFormat": "{{job}}", "refId": "A"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "p95 Inter-Token Latency",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 21},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "targets": [{"expr": "histogram_quantile(0.95, sum by (job, le) (rate(vllm:inter_token_latency_seconds_bucket[5m])))", "legendFormat": "{{job}}", "refId": "A"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "vLLM Request Rate",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 29},
+      "targets": [{"expr": "sum by (job) (rate(vllm:request_success_total[1m]))", "legendFormat": "{{job}} req/s", "refId": "A"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "vLLM Container CPU",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 29},
+      "fieldConfig": {"defaults": {"unit": "percent"}, "overrides": []},
+      "targets": [{"expr": "100 * sum by (name) (rate(container_cpu_usage_seconds_total{name=~\".*vllm.*\"}[1m]))", "legendFormat": "{{name}}", "refId": "A"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "vLLM Container Memory",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 37},
+      "fieldConfig": {"defaults": {"unit": "bytes"}, "overrides": []},
+      "targets": [{"expr": "sum by (name) (container_memory_working_set_bytes{name=~\".*vllm.*\"})", "legendFormat": "{{name}}", "refId": "A"}]
+    },
+    {
+      "type": "timeseries",
+      "title": "Host Load Average",
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 37},
+      "targets": [
+        {"expr": "node_load1", "legendFormat": "1m", "refId": "A"},
+        {"expr": "node_load5", "legendFormat": "5m", "refId": "B"},
+        {"expr": "node_load15", "legendFormat": "15m", "refId": "C"}
+      ]
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": ["vllm", "gpu", "system", "observability"],
+  "templating": {"list": []},
+  "time": {"from": "now-30m", "to": "now"},
+  "timezone": "browser",
+  "title": "vLLM + System + GPU Observability",
+  "uid": "vllm-system-gpu",
+  "version": 1
+}
