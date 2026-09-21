@@ -1,36 +1,38 @@
-# Local environment / secrets
-.env
-.env.*
-!.env.example
-
 # Python
-.venv/
 __pycache__/
 *.py[cod]
+*.so
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
 .coverage
-coverage.xml
 htmlcov/
 
-# Build / packaging
+# Virtual environments
+.venv/
+venv/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+
+# Runtime data
+data/qdrant/*
+!data/qdrant/.gitkeep
+data/documents/*
+!data/documents/.gitkeep
+
+# Build artifacts
 build/
 dist/
 *.egg-info/
 
-# IDE / OS
+# Editors / OS
 .vscode/
 .idea/
 .DS_Store
-
-# Runtime document/vector data
-data/*
-!data/documents/.gitkeep
-data/qdrant/*
-!data/qdrant/.gitkeep
-
-*.zip
-*.pem
-*.crt
-*.key
+Thumbs.db

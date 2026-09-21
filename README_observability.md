@@ -1,18 +1,16 @@
-# LGTM observability overlay for talk-to-doc-local
+# Local LGTM observability overlay
 
-This overlay is designed to be merged with the existing project `docker-compose.yml`.
+This Compose overlay adds a local Grafana/Prometheus/Tempo/Loki stack around the inference services and Qdrant. It is intended for development, benchmarking, and single-host operational testing; use your organization's managed/persistent observability platform for a real production environment.
 
-## What it collects
+## Collected metrics
 
-- vLLM: request concurrency, queueing, token throughput, TTFT, inter-token latency, KV-cache utilization and request success rate.
-- GPU: utilization, VRAM usage, temperature, power and other `nvidia-smi` fields supported by the current driver/GPU.
-- Host: CPU, RAM, filesystem, disk, network and load metrics from node-exporter.
-- Containers: CPU, memory, filesystem and network metrics from cAdvisor.
-- OTLP endpoint: ports 4317/4318 are ready for application traces/logs/metrics later.
+- vLLM LLM/STT/TTS request and model-runtime metrics exposed by each service.
+- Qdrant service metrics.
+- OTLP ports `4317` and `4318` are exposed on localhost for application telemetry you add later.
 
 ## Start
 
-From the project root:
+Set a non-default Grafana password in `.env`, then run:
 
 ```bash
 docker compose \
@@ -21,43 +19,23 @@ docker compose \
   up -d
 ```
 
-Grafana: http://localhost:3000
+Local endpoints:
 
-Prometheus: http://localhost:9090
+- Grafana: `http://127.0.0.1:3000`
+- Prometheus: `http://127.0.0.1:9090`
 
-Default Grafana credentials are `admin` / `admin` unless you set:
+The overlay intentionally binds these ports to localhost.
 
-```bash
-export GRAFANA_ADMIN_USER=admin
-export GRAFANA_ADMIN_PASSWORD='change-me'
-```
-
-## Verify scrape targets
+## Verify
 
 ```bash
-curl http://localhost:8000/metrics | head
-curl http://localhost:8001/metrics | head
-curl http://localhost:8002/metrics | head
-curl http://localhost:9090/api/v1/targets
+curl -fsS http://127.0.0.1:8000/metrics >/dev/null
+curl -fsS http://127.0.0.1:8001/metrics >/dev/null
+curl -fsS http://127.0.0.1:8002/metrics >/dev/null
+curl -fsS http://127.0.0.1:6333/metrics >/dev/null
+curl -fsS http://127.0.0.1:9090/api/v1/targets
 ```
 
-GPU exporter health:
+## Production note
 
-```bash
-docker exec talk-to-doc-gpu-exporter nvidia-smi
-```
-
-## WSL2 note
-
-`node-exporter` reports the Linux/WSL environment visible to Docker. If you also need native Windows host counters, run `windows_exporter` on Windows and add it as another Prometheus scrape target.
-
-## Optional vLLM traces
-
-vLLM can send OpenTelemetry traces to the LGTM Tempo backend. Add these server flags only if you need traces, because detailed tracing adds overhead:
-
-```text
---otlp-traces-endpoint http://lgtm:4317
---collect-detailed-traces model,worker
-```
-
-Add them to each vLLM service command only after the basic metrics stack is working.
+The supplied `grafana/otel-lgtm:latest` image is a convenience development bundle, not a pinned HA production observability deployment. For production, pin approved images/digests and deploy Grafana, Prometheus/Mimir, Loki, and Tempo with persistent storage, authentication, retention policy, backups, and alert routing appropriate to your platform.

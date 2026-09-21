@@ -1,21 +1,24 @@
 name: talk-to-doc-local
 
 services:
+  qdrant:
+    image: qdrant/qdrant:v1.19.1
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6333:6333"
+    volumes:
+      - qdrant-storage:/qdrant/storage
   vllm-llm:
     image: vllm/vllm-openai:v0.28.0
+    restart: unless-stopped
     ipc: host
-
     ports:
       - "127.0.0.1:8000:8000"
-
     volumes:
       - vllm-hf-cache:/root/.cache/huggingface
-
     environment:
       HF_HOME: /root/.cache/huggingface
-
       VLLM_USE_V2_MODEL_RUNNER: "${VLLM_USE_V2_MODEL_RUNNER:-0}"
-
     command:
       - Qwen/Qwen3-4B-AWQ
       - --served-model-name
@@ -32,8 +35,7 @@ services:
       - "8192"
       - --max-num-seqs
       - "1"
-      - --enforce-eager
-
+      # - --enforce-eager
     deploy:
       resources:
         reservations:
@@ -41,7 +43,6 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-
     healthcheck:
       test:
         [
@@ -53,30 +54,20 @@ services:
       retries: 30
       start_period: 90s
 
-
   vllm-stt:
-
     build:
       context: .
       dockerfile: deploy/Dockerfile.vllm-stt
-
     image: echolex-vllm-stt:v0.28.0
+    restart: unless-stopped
     ipc: host
-
-    depends_on:
-      vllm-llm:
-        condition: service_healthy
-
     ports:
       - "127.0.0.1:8001:8000"
-
     volumes:
       - vllm-hf-cache:/root/.cache/huggingface
-
     environment:
       HF_HOME: /root/.cache/huggingface
       VLLM_USE_V2_MODEL_RUNNER: "${VLLM_USE_V2_MODEL_RUNNER:-0}"
-
     command:
       - Qwen/Qwen3-ASR-0.6B
       - --served-model-name
@@ -94,7 +85,6 @@ services:
       - --max-num-seqs
       - "1"
       - --enforce-eager
-
     deploy:
       resources:
         reservations:
@@ -102,7 +92,6 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-
     healthcheck:
       test:
         [
@@ -114,52 +103,42 @@ services:
       retries: 30
       start_period: 90s
 
-
   vllm-tts:
     image: vllm/vllm-omni:v0.28.0
+    restart: unless-stopped
     ipc: host
-
-    depends_on:
-      vllm-stt:
-        condition: service_healthy
-
     ports:
       - "127.0.0.1:8002:8000"
-
     volumes:
       - vllm-hf-cache:/root/.cache/huggingface
-
       - type: bind
         source: ./deploy/qwen3_tts_16gb.yaml
         target: /etc/vllm/qwen3_tts_16gb.yaml
         read_only: true
         bind:
           create_host_path: false
-
     environment:
       HF_HOME: /root/.cache/huggingface
       VLLM_USE_V2_MODEL_RUNNER: "${VLLM_USE_V2_MODEL_RUNNER:-0}"
-
     command:
-    - vllm
-    - serve
-    - Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice
-    - --omni
-    - --host
-    - 0.0.0.0
-    - --port
-    - "8000"
-    - --dtype
-    - bfloat16
-    - --gpu-memory-utilization
-    - "0.20"
-    - --max-model-len
-    - "3072"
-    - --max-num-seqs
-    - "1"
-    - --enforce-eager
-    - --log-stats
-
+      - vllm
+      - serve
+      - Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice
+      - --omni
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --dtype
+      - bfloat16
+      - --gpu-memory-utilization
+      - "0.20"
+      - --max-model-len
+      - "3072"
+      - --max-num-seqs
+      - "1"
+      - --enforce-eager
+      - --log-stats
     deploy:
       resources:
         reservations:
@@ -167,7 +146,6 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-
     healthcheck:
       test:
         [
@@ -179,6 +157,6 @@ services:
       retries: 40
       start_period: 120s
 
-
 volumes:
+  qdrant-storage:
   vllm-hf-cache:

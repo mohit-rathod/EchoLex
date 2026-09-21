@@ -21,7 +21,6 @@ storage:
 
 scrape_configs:
   - job_name: vllm-llm
-    scrape_interval: 5s
     metrics_path: /metrics
     static_configs:
       - targets:
