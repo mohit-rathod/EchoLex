@@ -1,0 +1,77 @@
+# OPTIONAL corporate TLS override.
+#
+# Most users DO NOT need this file.
+#
+# Use it only when your organization performs HTTPS/TLS inspection and the
+# vLLM containers fail SSL certificate verification while downloading models.
+#
+# Zscaler is one common example, but this configuration also works with other
+# corporate CA bundles.
+#
+# Usage:
+#
+#   export ZSCALER_CA_FILE=/absolute/path/to/company-ca-bundle.pem
+#
+#   docker compose \
+#     -f docker-compose.yml \
+#     -f docker-compose.zscaler.yml \
+#     up -d
+#
+# Normal users should ignore this file and simply run:
+#
+#   docker compose up -d
+#
+# IMPORTANT:
+# Never commit your organization's CA certificate into this repository.
+
+services:
+
+  vllm-llm:
+    volumes:
+      - type: bind
+        source: ${ZSCALER_CA_FILE:?Set ZSCALER_CA_FILE to your corporate CA PEM file}
+        target: /etc/ssl/certs/company-ca-bundle.pem
+        read_only: true
+        bind:
+          create_host_path: false
+
+    environment:
+      SSL_CERT_FILE: /etc/ssl/certs/company-ca-bundle.pem
+      REQUESTS_CA_BUNDLE: /etc/ssl/certs/company-ca-bundle.pem
+      CURL_CA_BUNDLE: /etc/ssl/certs/company-ca-bundle.pem
+      GIT_SSL_CAINFO: /etc/ssl/certs/company-ca-bundle.pem
+      PIP_CERT: /etc/ssl/certs/company-ca-bundle.pem
+
+
+  vllm-stt:
+    volumes:
+      - type: bind
+        source: ${ZSCALER_CA_FILE:?Set ZSCALER_CA_FILE to your corporate CA PEM file}
+        target: /etc/ssl/certs/company-ca-bundle.pem
+        read_only: true
+        bind:
+          create_host_path: false
+
+    environment:
+      SSL_CERT_FILE: /etc/ssl/certs/company-ca-bundle.pem
+      REQUESTS_CA_BUNDLE: /etc/ssl/certs/company-ca-bundle.pem
+      CURL_CA_BUNDLE: /etc/ssl/certs/company-ca-bundle.pem
+      GIT_SSL_CAINFO: /etc/ssl/certs/company-ca-bundle.pem
+      PIP_CERT: /etc/ssl/certs/company-ca-bundle.pem
+
+
+  vllm-tts:
+    volumes:
+      - type: bind
+        source: ${ZSCALER_CA_FILE:?Set ZSCALER_CA_FILE to your corporate CA PEM file}
+        target: /etc/ssl/certs/company-ca-bundle.pem
+        read_only: true
+        bind:
+          create_host_path: false
+
+    environment:
+      SSL_CERT_FILE: /etc/ssl/certs/company-ca-bundle.pem
+      REQUESTS_CA_BUNDLE: /etc/ssl/certs/company-ca-bundle.pem
+      CURL_CA_BUNDLE: /etc/ssl/certs/company-ca-bundle.pem
+      GIT_SSL_CAINFO: /etc/ssl/certs/company-ca-bundle.pem
+      PIP_CERT: /etc/ssl/certs/company-ca-bundle.pem

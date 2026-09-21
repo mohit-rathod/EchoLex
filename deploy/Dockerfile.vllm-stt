@@ -1,0 +1,15 @@
+FROM vllm/vllm-openai:v0.28.0
+
+USER root
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY certs/zscaler-ca-bundle.pem /usr/local/share/ca-certificates/zscaler-ca.crt
+
+RUN update-ca-certificates
+
+ENV UV_SYSTEM_CERTS=true
+
+RUN uv pip install --system "vllm[audio]==0.28.0"

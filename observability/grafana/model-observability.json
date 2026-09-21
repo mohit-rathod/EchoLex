@@ -1,0 +1,1686 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Inference-only observability for the EchoLex LLM, speech-to-text and text-to-speech model servers. Select All for a combined comparison or choose an individual model.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Model inventory and live summary",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Scrape health",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "min by (model_service) (up{job=~\"vllm-.*\",model_service=~\"$model\"})",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": "1 means Prometheus can scrape the model server; 0 means the target is unavailable."
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Completed requests / sec",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 1,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm:request_success_total{job=~\"vllm-.*\",model_service=~\"$model\",inference_role!=\"tts\"}[1m])) or sum by (model_service) (rate(vllm_omni:requests_success_total{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[1m]))",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Running requests",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 1,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (vllm:num_requests_running{job=~\"vllm-.*\",model_service=~\"$model\",inference_role!=\"tts\"}) or sum by (model_service) (vllm_omni:num_requests_running{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"})",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Waiting requests",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (vllm:num_requests_waiting{job=~\"vllm-.*\",model_service=~\"$model\",inference_role!=\"tts\"}) or sum by (model_service) (vllm_omni:num_requests_waiting{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"})",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "p95 end-to-end latency",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:e2e_request_latency_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role!=\"tts\"}[5m]))) or histogram_quantile(0.95, sum by (model_service, le) (rate(vllm_omni:e2e_request_latency_s_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[5m])))",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Output tokens / sec",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 1,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm:generation_tokens_total{job=~\"vllm-.*\",model_service=~\"$model\"}[1m]))",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "tps",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "Configured model and serving parameters",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 24,
+        "h": 7
+      },
+      "targets": [
+        {
+          "expr": "max by (model_service, inference_role, model_repository, model_dtype, model_quantization, max_model_len, max_num_seqs, gpu_memory_utilization, execution_mode) (up{job=~\"vllm-.*\",model_service=~\"$model\"})",
+          "legendFormat": "",
+          "refId": "A",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "description": "Static labels are defined beside each Prometheus target, so the dashboard exposes the model configuration even when there is no inference traffic.",
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {}
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "row",
+      "title": "Traffic, throughput and request outcomes",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Completed request rate",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm:request_success_total{job=~\"vllm-.*\",model_service=~\"$model\",inference_role!=\"tts\"}[1m])) or sum by (model_service) (rate(vllm_omni:requests_success_total{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[1m]))",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Request outcomes",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 14,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service, finished_reason) (rate(vllm:request_success_total{job=~\"vllm-.*\",model_service=~\"$model\",inference_role!=\"tts\"}[1m]))",
+          "legendFormat": "{{model_service}} / {{finished_reason}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (model_service, finished_reason) (rate(vllm_omni:requests_success_total{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[1m]))",
+          "legendFormat": "{{model_service}} / {{finished_reason}}",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Token throughput",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm:prompt_tokens_total{job=~\"vllm-.*\",model_service=~\"$model\"}[1m]))",
+          "legendFormat": "{{model_service}} input",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (model_service) (rate(vllm:generation_tokens_total{job=~\"vllm-.*\",model_service=~\"$model\"}[1m]))",
+          "legendFormat": "{{model_service}} output",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "tps",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "description": "For ASR/TTS, token semantics are engine/model dependent. Audio-native performance is shown in the TTS section."
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "HTTP request and server-error rate",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 22,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(http_requests_total{job=~\"vllm-.*\",model_service=~\"$model\"}[1m]))",
+          "legendFormat": "{{model_service}} all",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (model_service) (rate(http_requests_total{job=~\"vllm-.*\",model_service=~\"$model\",status=~\"5.*\"}[1m]))",
+          "legendFormat": "{{model_service}} 5xx",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 14,
+      "type": "row",
+      "title": "Latency and phase breakdown",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 30,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "End-to-end latency percentiles",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 31,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum by (model_service, le) (rate(vllm:e2e_request_latency_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role!=\"tts\"}[5m]))) or histogram_quantile(0.5, sum by (model_service, le) (rate(vllm_omni:e2e_request_latency_s_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[5m])))",
+          "legendFormat": "{{model_service}} p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:e2e_request_latency_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role!=\"tts\"}[5m]))) or histogram_quantile(0.95, sum by (model_service, le) (rate(vllm_omni:e2e_request_latency_s_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[5m])))",
+          "legendFormat": "{{model_service}} p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (model_service, le) (rate(vllm:e2e_request_latency_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role!=\"tts\"}[5m]))) or histogram_quantile(0.99, sum by (model_service, le) (rate(vllm_omni:e2e_request_latency_s_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[5m])))",
+          "legendFormat": "{{model_service}} p99",
+          "refId": "C"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "Time to first token (TTFT)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 31,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (model_service, le) (rate(vllm:time_to_first_token_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:time_to_first_token_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (model_service, le) (rate(vllm:time_to_first_token_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p99",
+          "refId": "C"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "Inter-token latency / TPOT",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 39,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (model_service, le) (rate(vllm:inter_token_latency_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:inter_token_latency_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (model_service, le) (rate(vllm:inter_token_latency_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p99",
+          "refId": "C"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Queue latency",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 39,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (model_service, le) (rate(vllm:request_queue_time_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:request_queue_time_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (model_service, le) (rate(vllm:request_queue_time_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p99",
+          "refId": "C"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "Prefill latency",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 47,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (model_service, le) (rate(vllm:request_prefill_time_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:request_prefill_time_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p95",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Decode latency",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 47,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (model_service, le) (rate(vllm:request_decode_time_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:request_decode_time_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p95",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 21,
+      "type": "row",
+      "title": "Scheduler, cache and request shape",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 55,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "Running and waiting requests",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 56,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (vllm:num_requests_running{job=~\"vllm-.*\",model_service=~\"$model\",inference_role!=\"tts\"}) or sum by (model_service) (vllm_omni:num_requests_running{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"})",
+          "legendFormat": "{{model_service}} running",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (model_service) (vllm:num_requests_waiting{job=~\"vllm-.*\",model_service=~\"$model\",inference_role!=\"tts\"}) or sum by (model_service) (vllm_omni:num_requests_waiting{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"})",
+          "legendFormat": "{{model_service}} waiting",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 23,
+      "type": "timeseries",
+      "title": "KV-cache utilization",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 56,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "max by (model_service) (vllm:kv_cache_usage_perc{job=~\"vllm-.*\",model_service=~\"$model\"})",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 24,
+      "type": "timeseries",
+      "title": "Scheduler preemptions",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 64,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm:num_preemptions_total{job=~\"vllm-.*\",model_service=~\"$model\"}[1m]))",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 25,
+      "type": "timeseries",
+      "title": "Prefix-cache hit ratio",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 64,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm:prefix_cache_hits{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])) / clamp_min(sum by (model_service) (rate(vllm:prefix_cache_queries{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])), 0.000001)",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 26,
+      "type": "timeseries",
+      "title": "Prompt-token distribution",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 72,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (model_service, le) (rate(vllm:request_prompt_tokens_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:request_prompt_tokens_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p95",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 27,
+      "type": "timeseries",
+      "title": "Generated-token distribution",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 72,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (model_service, le) (rate(vllm:request_generation_tokens_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:request_generation_tokens_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p95",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 28,
+      "type": "row",
+      "title": "TTS / vLLM-Omni audio metrics",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 80,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 29,
+      "type": "timeseries",
+      "title": "Audio time to first packet",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 81,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (model_service, le) (rate(vllm_omni:audio_ttfp_s_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[5m])))",
+          "legendFormat": "{{model_service}} p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm_omni:audio_ttfp_s_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[5m])))",
+          "legendFormat": "{{model_service}} p95",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 30,
+      "type": "timeseries",
+      "title": "Audio real-time factor",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 81,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (model_service, le) (rate(vllm_omni:audio_rtf_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[5m])))",
+          "legendFormat": "{{model_service}} p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm_omni:audio_rtf_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[5m])))",
+          "legendFormat": "{{model_service}} p95",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "description": "RTF below 1 means audio is generated faster than real time."
+    },
+    {
+      "id": 31,
+      "type": "timeseries",
+      "title": "Generated audio duration",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 89,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (model_service, le) (rate(vllm_omni:audio_duration_s_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[5m])))",
+          "legendFormat": "{{model_service}} p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm_omni:audio_duration_s_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[5m])))",
+          "legendFormat": "{{model_service}} p95",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 32,
+      "type": "timeseries",
+      "title": "Audio underrun",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 89,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm_omni:audio_underrun_s_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[5m])))",
+          "legendFormat": "{{model_service}} p95",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "description": "Values above 0 indicate that a streaming listener would hear a gap."
+    },
+    {
+      "id": 33,
+      "type": "timeseries",
+      "title": "Audio frames generated / sec",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 97,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm_omni:audio_frames_total{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[1m]))",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 34,
+      "type": "timeseries",
+      "title": "TTS failures and skipped audio",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 97,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service, reason) (rate(vllm_omni:requests_failed_total{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[1m]))",
+          "legendFormat": "{{model_service}} failed / {{reason}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (model_service, reason) (rate(vllm_omni:audio_skipped_requests_total{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[1m]))",
+          "legendFormat": "{{model_service}} skipped / {{reason}}",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true
+          }
+        },
+        "overrides": []
+      },
+      "description": ""
+    }
+  ],
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "tags": [
+    "vllm",
+    "inference",
+    "llm",
+    "stt",
+    "tts"
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "model",
+        "label": "Model",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(up{job=~\"vllm-.*\"}, model_service)",
+        "query": {
+          "query": "label_values(up{job=~\"vllm-.*\"}, model_service)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "refresh": 1,
+        "sort": 1,
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        }
+      }
+    ]
+  },
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Model Inference Observability",
+  "uid": "model-inference-observability",
+  "version": 1,
+  "weekStart": ""
+}

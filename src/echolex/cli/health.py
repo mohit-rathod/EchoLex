@@ -20,8 +20,9 @@ def _get(url: str) -> tuple[int, str]:
 def main() -> None:
     settings = Settings.from_env()
     checks = {
-        "vLLM": settings.vllm_base_url.removesuffix("/v1") + "/health",
-        "Speaches": settings.speaches_base_url.removesuffix("/v1") + "/health",
+        "LLM": settings.llm_base_url.removesuffix("/v1") + "/health",
+        "STT": settings.stt_base_url.removesuffix("/v1") + "/health",
+        "TTS": settings.tts_base_url.removesuffix("/v1") + "/health",
     }
     failed = False
     for name, url in checks.items():

@@ -1,0 +1,235 @@
+
+**My Device**:
++---------------------------------------------------------------------------------------+
+| NVIDIA-SMI 535.309.01             Driver Version: 596.58       CUDA Version: 13.2     |
+|-----------------------------------------+----------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |         Memory-Usage | GPU-Util  Compute M. |
+|                                         |                      |               MIG M. |
+|=========================================+======================+======================|
+|   0  NVIDIA GeForce RTX 4090 ...    On  | 00000000:01:00.0  On |                  N/A |
+| N/A   45C    P8               7W / 105W |    407MiB / 16376MiB |      0%      Default |
+|                                         |                      |                  N/A |
++-----------------------------------------+----------------------+----------------------+
+
+
+**Plan**:
+| Role         | Recommended model                      | Checkpoint size (GPU/CPU) | Why                                                               |
+| -------------| -------------------------------------- | -------------------       | ----------------------------------------------------------------  |
+| STT          | `Qwen/Qwen3-ASR-0.6B`                  | ~1.88 GB / 1.75 GiB       | Very small, vLLM support, offline + realtime mode, multilingual   |
+| LLM          | `Qwen/Qwen3-4B-AWQ`                    | ~2.68 GB / 2.49 GiB       | 4-bit, enough for grounded RAG workload, leaves VRAM for speech   |
+| TTS          | `Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice` | ~2.50 GB / 2.33 GiB       | Streaming, preset voices, 24 kHz, official vLLM-Omni support      |
+| VAD          | Silero                                 | CPU                       | Tiny workload; GPU contention is pointless                        |
+| Embeddings   | `BAAI/bge-small-en-v1.5`               | CPU                       | One query embedding per turn; CPU is sufficient                   |
+| Vector DB    | Qdrant                                 | CPU                       | No reason to consume GPU                                          |
+| PDF/chunking | PyMuPDF                                | CPU                       | Naturally CPU-bound                                               |
+
+I will put STT, LLM and TTS into GPU memory, and will keep the rest in CPU.
+
+
+**Parameters used in vLLM inference and it's meaning**:
+| Parameter                 | Meaning                                                                                       |
+| ------------------------- | --------------------------------------------------------------------------------------------- |
+| --served-model-name       | API-visible name of model, it does not determine which weights are loaded.                    |
+| --host                    | Controls which network interfaces the vLLM HTTP server listens on.                            |
+| --port                    | This tells vLLM: Run the HTTP API server on that TCP port                                     |
+| --dtype                   | The numerical precision used for model computation/weights where applicable.                  |
+|                           |   * "auto" use FP16 precision for FP32 and FP16 models, and BF16 precision for BF16 models.   |
+|                           |   * "half" or "float16" for FP16. Recommended for AWQ quantization.                           |
+|                           |   * "bfloat16" for a balance between precision and range.                                     |
+|                           |   * "float" and "float32" for FP32 precision.                                                 |
+| --gpu-memory-utilization  | Tells the vLLM instance what fraction of GPU memory it should target for its model executor   |
+|                           |   * For example, suppose you have: GPU VRAM = 24 GB                                           |
+|                           |   * --gpu-memory-utilization 0.30 means                                                       | 
+|                           |   * 0.30 × 24 GB ≈ 7.2 GB is the memory budget associated with that vLLM instance.            |
+|                           |   * That budget must accommodate things such as:                                              |
+|                           |       * Model Weights, KV Cache, Activations/Workspaces and Runtime Overheads                 |
+| --max-model-len           | Maximum context length for one sequence (input tokens + generated/output tokens).             |
+|                           |   * larger max context -> potentially larger KV-cache requirement -> more GPU memory          |
+| --max-num-seqs            | Maximum number of sequences processed in a single scheduler iteration.                        |
+|                           |   * --max-num-seqs 1 means the model scheduler is limited to one sequence in an iteration     |
+|                           |   * --max-num-seqs 4 means vLLM can allow upto 4 LLM requests in a single iteration           |
+| --max-num-batched-tokens  | Maximum number of tokens that can be processed in a single iteration                          |
+|                           |   * across all active sequences in a single model forward pass.                               |
+|                           |   * across all active sequences in a single model forward pass.                               |
+| --enforce-eager           | vLLM can use a mixture of CUDA Graph + eager execution. --enforce-eager tells vLLM to:        |
+|                           |   * use eager-mode PyTorch execution and disable CUDA graphs.                                 |
+|                           |   * Advantages: debugging, model compatibility, lower CUDA-graph memory overhead,             |
+|                           |       unusual model architectures, initial deployment stability                               |
+|                           |   * Disadvantage: lower throughput, higher latency                                            |
+| --tensor-parallel-size    | Number of tensor-parallel groups/ranks. Conceptually, one model is divided across GPUs:       |
+|                           |   * --tensor-parallel-size 4 means a single inference request uses four GPUs cooperatively.   |
+| --pipeline-parallel-size  | Instead of splitting each matrix across GPUs, this parameter divides the network's layers     |
+|                           |   * --pipeline-parallel-size 2 will split a model with 32 layers into                         |
+|                           |   *   GPU 0 (Layers 1-16) and GPU 1 (Layers 17-32)                                            |
+| --data-parallel-size      | This creates multiple model replicas/groups for serving more workload.                        |
+| --quantization            | This tells vLLM how model weights should be interpreted/quantized.                            |
+| --api-key                 | vLLM can require an authorization key for certain API prefixes.                               |
+
+
+** Inference Request parameters**
+| Parameter               | Meaning                                                                                                        |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `model`                 | Model name exposed by the server, e.g. `qwen3-4b-awq`.                                                         |
+| `messages`              | Conversation history containing `system`, `user`, and `assistant` messages.                                    |
+|                         |     * System: It acts as the "meta-instructions" or "root prompt" for the LLM.                                 |
+|                         |     * User: It represents the immediate input that the model needs to process or answer                        |
+|                         |     * Assistant: It maintains conversational continuity by feeding past assistant responses back into the API. |
+| `temperature`           | Controls randomness. Lower = more deterministic; higher = more varied.                                         |
+| `top_p`                 | Nucleus sampling. Restricts generation to tokens covering the specified cumulative probability.                |
+| `max_completion_tokens` | Maximum number of tokens the model may generate.                                                               |
+| `frequency_penalty`     | Penalizes tokens according to how often they have already appeared; reduces repetition.                        |
+| `presence_penalty`      | Penalizes tokens once they have appeared at all; encourages introducing new content.                           |
+| `stop`                  | String(s) that cause generation to stop when encountered.                                                      |
+| `stream`                | `true` sends generated tokens/chunks progressively instead of waiting for the full answer.                     |
+| `n`                     | Number of alternative completions to generate. Usually `1`.                                                    |
+| `seed`                  | Attempts to make sampling more reproducible, where supported.                                                  |
+| `logprobs`              | Returns token log-probabilities when supported.                                                                |
+| `tools`                 | Defines functions/tools the model is allowed to call.                                                          |
+| `tool_choice`           | Controls whether/how the model should use provided tools.                                                      |
+| `response_format`       | Constrains output format, such as structured JSON where supported.                                             |
+
+
+**CUDA Graph**
+    Normally, during inference, PyTorch launches many CUDA kernels from the CPU:
+    CPU
+    │
+    ├─ launch kernel 1 ──► GPU
+    ├─ launch kernel 2 ──► GPU
+    ├─ launch kernel 3 ──► GPU
+    ├─ launch kernel 4 ──► GPU
+    │
+    ...
+
+    Every kernel launch has CPU-side overhead. For an LLM decoding one token at a time, that overhead can matter because the same pattern of GPU operations repeats again and again.
+
+    A CUDA Graph captures that repeated GPU workload once and later iterations can replay the whole graph:
+
+    kernel 1
+    kernel 2
+    kernel 3
+    kernel 4
+    │
+    ▼
+    CUDA Graph
+
+    CPU
+    │
+    └─ replay graph ─────► GPU
+                        ├─ kernel 1
+                        ├─ kernel 2
+                        ├─ kernel 3
+                        └─ kernel 4
+
+    The biggest benefit is generally lower latency and less CPU launch overhead, especially during autoregressive decode where the model repeatedly executes very similar operations.
+
+
+**Eager Execution**
+    Eager execution means PyTorch runs operations normally as they are encountered:
+    Each operation causes normal runtime dispatch/kernel launches.
+
+    Conceptually:
+
+    Python / PyTorch
+        │
+        ▼
+    operation
+        │
+        ▼
+    CUDA kernel
+        │
+        ▼
+    next operation
+        │
+        ▼
+    CUDA kernel
+
+    This is more flexible because execution can change dynamically.
+
+
+**What does --enforce-eager do?**
+    vllm serve ... --enforce-eager
+
+    effectively changes:
+
+    Default:
+
+    vLLM
+    │
+    ├─ CUDA Graph where possible
+    │
+    └─ eager execution where necessary
+
+    into:
+
+    vLLM
+    │
+    └─ eager execution only
+
+
+**Why --enforce-eager?**
+    1. Debugging
+    2. Model compatibility
+    3. Lower startup/capture complexity
+    4. Memory considerations
+
+
+**Prefill & Decode**
+    *Prefill*
+
+        Prefill is when the model processes the entire input prompt before generating the first new token.
+        uring prefill, the model processes all prompt tokens together:
+
+        Prompt tokens
+        │
+        ▼
+        Transformer layers
+        │
+        ▼
+        KV cache created
+        │
+        ▼
+        probability for first output token
+
+        So prefill is roughly:
+
+            input tokens → model → build KV cache
+
+        Prefill is usually:
+
+            highly parallel
+            compute-heavy
+            dominated by matrix multiplications
+            sensitive to prompt length
+
+        A 5000-token prompt takes much more prefill work than a 50-token prompt.
+        This phase determines much of the time to first token (TTFT).
+
+    *Decode*
+
+        Decode begins after prefill.
+
+        Now the model generates output one token at a time.
+
+        For example:
+
+        The
+        The transformer
+        The transformer model
+        The transformer model uses
+        ...
+
+        At each step:
+
+            previous token
+                +
+            KV cache
+                │
+                ▼
+            model
+                │
+                ▼
+            next token
+
+        The important thing is that the model does not reprocess the entire original prompt every time.
+        It reuses the KV cache generated during prefill.

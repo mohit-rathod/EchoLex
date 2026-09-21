@@ -1,29 +1,29 @@
-"""Legacy Speaches TTS adapter.
-
-This module is retained for source compatibility only.
-
-The default Echolex deployment uses vLLM-Omni with
-VLLMOmniTTSService and does not start or require Speaches.
-
-Do not interpret the existence of this module as a runtime
-dependency on Speaches.
-"""
-
-
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
 
 import httpx
 from loguru import logger
-from pipecat.frames.frames import ErrorFrame, Frame, TTSAudioRawFrame
+from pipecat.frames.frames import (
+    ErrorFrame,
+    Frame,
+    TTSAudioRawFrame,
+)
 from pipecat.services.settings import TTSSettings
-from pipecat.services.tts_service import TextAggregationMode, TTSService
-from pipecat.utils.tracing.service_decorators import traced_tts
+from pipecat.services.tts_service import (
+    TextAggregationMode,
+    TTSService,
+)
+from pipecat.utils.tracing.service_decorators import (
+    traced_tts,
+)
 
 
-class SpeachesTTSService(TTSService):
-    """Pipecat TTS adapter for Speaches' OpenAI-compatible speech endpoint."""
+class VLLMOmniTTSService(TTSService):
+    """
+    Pipecat adapter for vLLM-Omni's
+    OpenAI-compatible TTS endpoint.
+    """
 
     def __init__(
         self,
@@ -31,12 +31,18 @@ class SpeachesTTSService(TTSService):
         base_url: str,
         model: str,
         voice: str,
+        language: str = "English",
         speed: float = 1.0,
         sample_rate: int = 24000,
-        request_timeout_seconds: float = 30.0,
+        request_timeout_seconds: float = 60.0,
         **kwargs,
     ) -> None:
-        settings = TTSSettings(model=model, voice=voice, language=None)
+        settings = TTSSettings(
+            model=model,
+            voice=voice,
+            language=None,
+        )
+
         super().__init__(
             sample_rate=sample_rate,
             text_aggregation_mode=TextAggregationMode.SENTENCE,
@@ -45,12 +51,19 @@ class SpeachesTTSService(TTSService):
             settings=settings,
             **kwargs,
         )
-        self._endpoint = f"{base_url.rstrip('/')}/audio/speech"
+
+        self._endpoint = (f"{base_url.rstrip('/')}/audio/speech")
+
         self._model = model
         self._voice = voice
+        self._language = language
         self._speed = speed
+
         self._client = httpx.AsyncClient(
-            timeout=httpx.Timeout(request_timeout_seconds, connect=3.0),
+            timeout=httpx.Timeout(
+                request_timeout_seconds,
+                connect=3.0,
+            ),
         )
 
     def can_generate_metrics(self) -> bool:
@@ -61,13 +74,22 @@ class SpeachesTTSService(TTSService):
         await self._client.aclose()
 
     @traced_tts
-    async def run_tts(self, text: str, context_id: str) -> AsyncGenerator[Frame | None, None]:
+    async def run_tts(
+        self,
+        text: str,
+        context_id: str,
+    ) -> AsyncGenerator[Frame | None, None]:
         payload = {
             "model": self._model,
             "voice": self._voice,
             "input": text,
+            "language": self._language,
+
             "response_format": "pcm",
+
+            "stream": True,
             "stream_format": "audio",
+
             "sample_rate": self.sample_rate,
             "speed": self._speed,
         }
@@ -76,22 +98,31 @@ class SpeachesTTSService(TTSService):
             async with self._client.stream("POST", self._endpoint, json=payload) as response:
                 if response.status_code != 200:
                     body = (await response.aread()).decode("utf-8", errors="replace")[:1000]
+
                     yield ErrorFrame(
-                        error=f"Speaches TTS failed: HTTP {response.status_code}: {body}"
+                        error=(
+                            "vLLM-Omni TTS failed: "
+                            f"HTTP {response.status_code}: "
+                            f"{body}"
+                        )
                     )
                     return
 
                 await self.start_tts_usage_metrics(text)
+
                 pending = b""
                 first_audio = True
 
-                async for network_chunk in response.aiter_bytes(self.chunk_size):
+                async for network_chunk in (response.aiter_bytes(self.chunk_size)):
                     if not network_chunk:
                         continue
 
                     data = pending + network_chunk
+
                     usable = len(data) - (len(data) % 2)
+
                     pending = data[usable:]
+
                     if usable == 0:
                         continue
 
@@ -107,9 +138,24 @@ class SpeachesTTSService(TTSService):
                     )
 
                 if pending:
-                    logger.warning("Dropping one incomplete PCM byte from Speaches TTS response")
+                    logger.warning(
+                        "Dropping one incomplete "
+                        "PCM byte from vLLM-Omni "
+                        "TTS response"
+                    )
 
         except httpx.TimeoutException as exc:
-            yield ErrorFrame(error=f"Speaches TTS timed out: {exc}")
+            yield ErrorFrame(
+                error=(
+                    "vLLM-Omni TTS timed out: "
+                    f"{exc}"
+                )
+            )
+
         except httpx.HTTPError as exc:
-            yield ErrorFrame(error=f"Speaches TTS request failed: {exc}")
+            yield ErrorFrame(
+                error=(
+                    "vLLM-Omni TTS request failed: "
+                    f"{exc}"
+                )
+            )
