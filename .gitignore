@@ -31,7 +31,6 @@ data/qdrant/*
 !data/qdrant/.gitkeep
 
 *.zip
-docker-compose.zscaler.yml
 *.pem
 *.crt
 *.key

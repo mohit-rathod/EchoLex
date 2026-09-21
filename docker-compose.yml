@@ -158,6 +158,7 @@ services:
     - --max-num-seqs
     - "1"
     - --enforce-eager
+    - --log-stats
 
     deploy:
       resources:

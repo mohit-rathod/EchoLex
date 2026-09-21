@@ -4,7 +4,6 @@ global:
   evaluation_interval: 5s
   scrape_native_histograms: true
 
-# Keep the OTLP settings expected by grafana/otel-lgtm.
 otlp:
   keep_identifying_resource_attributes: true
   promote_resource_attributes:
@@ -21,48 +20,53 @@ storage:
     out_of_order_time_window: 10m
 
 scrape_configs:
-  # vLLM exposes Prometheus metrics directly on /metrics.
   - job_name: vllm-llm
     scrape_interval: 5s
     metrics_path: /metrics
     static_configs:
-      - targets: ["vllm-llm:8000"]
+      - targets:
+          - vllm-llm:8000
         labels:
           inference_role: llm
           model_service: qwen3-4b-awq
+          model_repository: Qwen/Qwen3-4B-AWQ
+          model_dtype: auto
+          model_quantization: awq
+          max_model_len: "8192"
+          max_num_seqs: "1"
+          gpu_memory_utilization: "0.30"
+          execution_mode: eager
 
   - job_name: vllm-stt
     scrape_interval: 5s
     metrics_path: /metrics
     static_configs:
-      - targets: ["vllm-stt:8000"]
+      - targets:
+          - vllm-stt:8000
         labels:
           inference_role: stt
           model_service: qwen3-asr-0.6b
+          model_repository: Qwen/Qwen3-ASR-0.6B
+          model_dtype: bfloat16
+          model_quantization: none
+          max_model_len: "3072"
+          max_num_seqs: "1"
+          gpu_memory_utilization: "0.20"
+          execution_mode: eager
 
   - job_name: vllm-tts
     scrape_interval: 5s
     metrics_path: /metrics
     static_configs:
-      - targets: ["vllm-tts:8000"]
+      - targets:
+          - vllm-tts:8000
         labels:
           inference_role: tts
           model_service: qwen3-tts-0.6b
-
-  # Linux/WSL system metrics: CPU, RAM, disk, filesystem, network, load.
-  - job_name: node
-    scrape_interval: 10s
-    static_configs:
-      - targets: ["node-exporter:9100"]
-
-  # NVIDIA GeForce/RTX-friendly metrics via nvidia-smi.
-  - job_name: nvidia-gpu
-    scrape_interval: 5s
-    static_configs:
-      - targets: ["gpu-exporter:9835"]
-
-  # Per-container CPU, RAM, network and filesystem metrics.
-  - job_name: cadvisor
-    scrape_interval: 10s
-    static_configs:
-      - targets: ["cadvisor:8080"]
+          model_repository: Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice
+          model_dtype: bfloat16
+          model_quantization: none
+          max_model_len: "3072"
+          max_num_seqs: "1"
+          gpu_memory_utilization: "0.20"
+          execution_mode: eager
