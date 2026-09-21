@@ -1,15 +1,17 @@
-FROM vllm/vllm-openai:v0.28.0
+# syntax=docker/dockerfile:1.7
+FROM vllm/vllm-openai:v0.29.0
 
 USER root
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY certs/zscaler-ca-bundle.pem /usr/local/share/ca-certificates/zscaler-ca.crt
-
-RUN update-ca-certificates
+RUN --mount=type=secret,id=corporate_ca \
+    set -eu; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends ca-certificates; \
+    if [ -f /run/secrets/corporate_ca ]; then \
+      cp /run/secrets/corporate_ca /usr/local/share/ca-certificates/corporate-ca.crt; \
+      update-ca-certificates; \
+    fi; \
+    rm -rf /var/lib/apt/lists/*; \
+    uv pip install --system "vllm[audio]==0.28.0"
 
 ENV UV_SYSTEM_CERTS=true
-
-RUN uv pip install --system "vllm[audio]==0.28.0"

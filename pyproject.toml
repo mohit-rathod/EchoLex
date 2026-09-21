@@ -1,7 +1,7 @@
 [project]
 name = "talk-to-doc-local"
 version = "0.1.0"
-description = "Fully local Talk-To-Your-Document voice RAG app with Pipecat, vLLM, vLLM-Omni, Qdrant, and SentenceTransformers."
+description = "Production-oriented local voice RAG application with Pipecat, vLLM, Qdrant, SentenceTransformers, and PyMuPDF."
 readme = "README.md"
 requires-python = ">=3.11,<3.15"
 dependencies = [
@@ -21,6 +21,7 @@ dev = [
 ]
 
 [project.scripts]
+echolex-bot = "echolex.bot:main"
 echolex-ingest = "echolex.cli.ingest:main"
 echolex-health = "echolex.cli.health:main"
 
@@ -33,7 +34,7 @@ packages = ["src/echolex"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra"
+addopts = "-ra --strict-config --strict-markers"
 
 [tool.ruff]
 line-length = 100

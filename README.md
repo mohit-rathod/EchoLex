@@ -1,203 +1,149 @@
-# Talk-To-Your-Document
+# Echolex / Talk-To-Your-Document
 
-A fully local, open-source voice RAG application built with Pipecat, vLLM, Speaches, SentenceTransformers, Qdrant, and PyMuPDF.
+A local-first voice RAG application built around Pipecat, vLLM, vLLM-Omni, Qdrant, SentenceTransformers, and PyMuPDF.
 
-This version keeps the existing runtime behavior intact while reorganizing the repository into explicit production-oriented module boundaries.
+This revision keeps the existing product flow while hardening the codebase for repeatable deployment and operations: validated configuration, standalone Qdrant support, bounded RAG context, explicit resource cleanup, safer TTS error handling, health checks, structured logging support, CI, and repository/deployment hygiene.
 
 ## Runtime flow
 
 ```text
-Microphone
+Browser microphone
   -> Pipecat + Silero VAD
-  -> Faster-Whisper STT via Speaches
+  -> Qwen3-ASR through an OpenAI-compatible vLLM endpoint
   -> BGE query embedding
-  -> Qdrant retrieval
-  -> vLLM / Qwen2.5 response
-  -> Kokoro TTS via Speaches
-  -> Browser audio
+  -> Qdrant semantic retrieval
+  -> request-scoped grounded context
+  -> Qwen3 LLM through vLLM
+  -> Qwen3-TTS through vLLM-Omni
+  -> browser audio
 ```
 
-Document ingestion remains a separate flow:
+Document ingestion is separate:
 
 ```text
-PDF -> PyMuPDF -> page-aware chunks -> BGE embeddings -> Qdrant
+PDF
+  -> file/page safety checks
+  -> PyMuPDF ordered text extraction
+  -> bounded overlapping chunks
+  -> SentenceTransformer embeddings
+  -> deterministic IDs + provenance
+  -> Qdrant
 ```
 
-## Repository structure
+## Production-oriented guarantees in this revision
+
+- Settings are parsed and validated at process startup with actionable configuration errors.
+- `APP_ENV=production` rejects embedded Qdrant; configure `QDRANT_URL` for a standalone service.
+- LLM/STT/TTS credentials are configuration, not hard-coded runtime policy.
+- Retrieval context is bounded by `RAG_MAX_CONTEXT_CHARS` to prevent uncontrolled prompt growth.
+- Explicit rephrasing requests can reuse the previous evidence; factual follow-ups are re-retrieved with topic context.
+- Qdrant and HTTP clients have explicit timeouts and cleanup paths.
+- PDF ingestion has file-size and page-count limits.
+- TTS does not pass raw upstream error bodies to end users.
+- JSON logs can be enabled with `LOG_JSON=true`.
+- Health checks cover LLM, STT, TTS, and Qdrant.
+- Local secrets, model/vector data, certificates, caches, and source PDFs are excluded from Git/Docker contexts.
+- GitLab CI runs lint and unit tests from the lockfile.
+
+## Repository layout
 
 ```text
-.
-├── .dockerignore
-├── .env.example
-├── .gitignore
-├── ARCHITECTURE.md
-├── Makefile
-├── README.md
-├── docker-compose.yml
-├── pyproject.toml
-├── uv.lock
-├── data/
-│   ├── documents/
-│   │   └── .gitkeep
-│   └── qdrant/
-│       └── .gitkeep
-├── src/echolex/
-│   ├── __init__.py
-│   ├── bot.py                       # Stable Pipecat module entrypoint
-│   ├── chunking.py                  # Compatibility import
-│   ├── config.py                    # Compatibility import
-│   ├── healthcheck.py               # Compatibility entrypoint
-│   ├── rag.py                       # Compatibility import
-│   ├── cli/
-│   │   ├── health.py
-│   │   └── ingest.py
-│   ├── core/
-│   │   ├── config.py
-│   │   └── prompts.py
-│   ├── domain/
-│   │   └── models.py
-│   ├── ingestion/
-│   │   ├── __init__.py
-│   │   ├── __main__.py
-│   │   ├── chunking.py
-│   │   └── service.py
-│   ├── integrations/
-│   │   └── speech/
-│   │       └── speaches_tts.py
-│   ├── retrieval/
-│   │   └── service.py
-│   ├── voice/
-│   │   ├── pipeline.py
-│   │   └── processors/
-│   │       └── rag_context.py
-│   ├── processors/                  # Compatibility imports
-│   └── services/                    # Compatibility imports
-└── tests/
-    ├── test_chunking.py
-    ├── test_config.py
-    └── test_public_imports.py
+src/echolex/
+├── core/                  # validated settings, logging, prompt/text utilities
+├── domain/                # framework-independent immutable models
+├── ingestion/             # PDF extraction, chunking, embedding and indexing
+├── retrieval/             # Qdrant retrieval + conversational evidence policy
+├── integrations/speech/   # vLLM-Omni and legacy speech adapters
+├── voice/                 # Pipecat orchestration and RAG processor
+├── cli/                   # operational entrypoints
+└── compatibility modules  # preserved legacy import paths
 ```
 
-See `ARCHITECTURE.md` for module ownership, dependency direction, and intentionally deferred runtime improvements.
-
-## Design principles in this refactor
-
-- Runtime/business behavior is intentionally unchanged.
-- Domain data models are framework-independent.
-- Configuration and prompt constants live under `core`.
-- Ingestion and retrieval are separate features instead of root-level modules.
-- Pipecat-specific code lives under the voice boundary.
-- Speaches is treated as an integration adapter.
-- CLI parsing is separated from application logic.
-- Original import/entrypoint paths remain available through thin compatibility modules.
-- Local secrets, vector-store state, PDFs, and Python bytecode are excluded from the repository.
+See `ARCHITECTURE.md` for dependency rules and deployment notes.
 
 ## Prerequisites
 
-Recommended development environment:
-
 - Linux or WSL2
 - Docker Engine + Docker Compose
-- NVIDIA GPU with NVIDIA Container Toolkit for vLLM
+- NVIDIA Container Toolkit for GPU inference
 - Python 3.11+
 - `uv`
 
-The supplied Qwen2.5-7B AWQ setup is best suited to a GPU with roughly 12 GB VRAM or more. Lower-memory GPUs may require reducing model context length or concurrency.
+The supplied inference settings are deliberately low-concurrency and tuned for a constrained single-GPU local environment. Benchmark and resize model context, concurrency, and GPU memory reservations for the actual deployment GPU before raising traffic.
 
 ## Setup
 
-Create the local environment:
-
 ```bash
 cp .env.example .env
-uv sync --dev
-```
-
-Start local inference services:
-
-```bash
+uv sync --frozen --dev
 docker compose up -d
-```
-
-Verify vLLM and Speaches readiness:
-
-```bash
 uv run echolex-health
 ```
 
-Default local endpoints:
+The default local endpoints are:
 
-- vLLM: `http://127.0.0.1:8000/v1`
-- Speaches: `http://127.0.0.1:8001/v1`
+- LLM: `http://127.0.0.1:8000/v1`
+- STT: `http://127.0.0.1:8001/v1`
+- TTS: `http://127.0.0.1:8002/v1`
+- Qdrant: `http://127.0.0.1:6333`
 
 ## Index a PDF
 
-Copy a PDF into the local document directory:
-
 ```bash
 cp /path/to/manual.pdf data/documents/manual.pdf
-```
-
-Create the vector index:
-
-```bash
 uv run echolex-ingest data/documents/manual.pdf --recreate
 ```
 
-or:
-
-```bash
-make ingest PDF=data/documents/manual.pdf
-```
+`--recreate` is convenient for a single-document environment because it resets the collection first. Without it, deterministic point IDs make re-ingesting the same unchanged PDF idempotent.
 
 ## Run the voice application
 
-Once inference services are healthy and a PDF has been indexed:
-
 ```bash
-uv run python -m echolex.bot -t webrtc
+uv run echolex-bot -t webrtc
 ```
 
-Open:
+Then open the Pipecat client URL printed by the runner (commonly `http://localhost:7860/client`).
+
+## Configuration
+
+`.env.example` documents all supported settings. Important production controls include:
 
 ```text
-http://localhost:7860/client
+APP_ENV=production
+LOG_JSON=true
+QDRANT_URL=http://qdrant.internal:6333
+QDRANT_API_KEY=...
+LLM_API_KEY=...
+STT_API_KEY=...
+TTS_API_KEY=...
+RAG_RETRIEVAL_TIMEOUT_SECONDS=1.5
+RAG_MAX_CONTEXT_CHARS=6000
+MAX_PDF_BYTES=104857600
+MAX_PDF_PAGES=2000
 ```
 
-Retrieved excerpts are injected only into the current LLM request. They are not permanently appended to conversation history.
+Do not commit `.env`, API keys, TLS private material, source PDFs, or Qdrant storage.
 
-## Development commands
+## Quality gates
 
 ```bash
-# Tests
-uv run pytest -q
-
-# Lint
-uv run ruff check src tests
-
-# Local service health
-uv run echolex-health
-
-# Infrastructure lifecycle
-docker compose up -d
-docker compose ps
-docker compose logs -f vllm
-docker compose logs -f speaches
-docker compose down
+make lint
+make test
+make check
 ```
 
-## Repository hygiene
+GitLab CI runs the same lint/test gates with `uv sync --frozen --dev`.
 
-The refactored repository intentionally does not ship:
+## Observability
 
-- `.env`
-- indexed Qdrant data
-- uploaded/source PDFs
-- `__pycache__`
-- local test/lint caches
+Start the local LGTM overlay:
 
-Use `.env.example` as the checked-in configuration template and populate local runtime data under `data/`.
+```bash
+docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
+```
 
-## Deferred engineering work
+Set a real `GRAFANA_ADMIN_PASSWORD` in `.env` before exposing Grafana outside localhost. See `README_observability.md` for the supplied model/GPU dashboard and Prometheus configuration.
 
-This pass is structural only. Runtime shortcomings such as standalone Qdrant deployment, retry/circuit-breaker policies, OCR, multi-document lifecycle, authentication, richer observability, retrieval tuning, and model/service lifecycle management are deliberately left for later changes so they can be implemented and benchmarked independently.
+## Deployment boundary
+
+This repository is now suitable as a production-oriented application baseline, but production readiness still depends on the environment around it. Before internet-facing or multi-tenant deployment, add the controls appropriate to your platform: authenticated ingress, TLS termination, secrets management, network policies, backup/restore for Qdrant, document tenancy/authorization, load testing, alerting/SLOs, vulnerability scanning, and a rollout/rollback strategy.

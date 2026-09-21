@@ -44,6 +44,10 @@ services:
 
 
   vllm-stt:
+    build:
+      secrets:
+        - corporate_ca
+
     volumes:
       - type: bind
         source: ${ZSCALER_CA_FILE:?Set ZSCALER_CA_FILE to your corporate CA PEM file}
@@ -75,3 +79,7 @@ services:
       CURL_CA_BUNDLE: /etc/ssl/certs/company-ca-bundle.pem
       GIT_SSL_CAINFO: /etc/ssl/certs/company-ca-bundle.pem
       PIP_CERT: /etc/ssl/certs/company-ca-bundle.pem
+
+secrets:
+  corporate_ca:
+    file: ${ZSCALER_CA_FILE:?Set ZSCALER_CA_FILE to your corporate CA PEM file}

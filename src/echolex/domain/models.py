@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class TextChunk:
     """A bounded segment of extracted document text with page provenance."""
 
@@ -13,7 +13,7 @@ class TextChunk:
     source: str
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class RetrievedChunk:
     """A document segment returned by semantic retrieval."""
 
@@ -21,3 +21,7 @@ class RetrievedChunk:
     page: int
     source: str
     score: float
+    chunk_id: str = ""
+    chunk_index: int = 0
+    document_sha256: str = ""
+ 
