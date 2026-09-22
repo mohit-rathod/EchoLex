@@ -62,7 +62,7 @@ class DocumentRetriever:
         with self._query_lock:
             vector = self.encoder.encode_query(
                 query,
-                prompt=BGE_QUERY_PROMPT,
+                prompt="Represent this sentence for searching relevant passages:",
                 normalize_embeddings=True,
             ).tolist()
             result = self.client.query_points(

@@ -51,27 +51,78 @@ def _bool_env(name: str, default: bool) -> bool:
         return False
     raise ConfigurationError(f"{name} must be a boolean; got {raw!r}")
 
+def _required_env(name: str) -> str:
+    value = os.getenv(name)
+
+    if value is None or value.strip() == "":
+        raise ConfigurationError(
+            f"{name} is required. "
+            "Configure it in .env "
+            "(or the file selected by ECHOLEX_ENV_FILE)."
+        )
+
+    return value.strip()
+
+
+def _required_int_env(name: str) -> int:
+    raw = _required_env(name)
+
+    try:
+        return int(raw)
+    except ValueError as exc:
+        raise ConfigurationError(
+            f"{name} must be an integer; got {raw!r}"
+        ) from exc
+
+
+def _required_float_env(name: str) -> float:
+    raw = _required_env(name)
+
+    try:
+        return float(raw)
+    except ValueError as exc:
+        raise ConfigurationError(
+            f"{name} must be a number; got {raw!r}"
+        ) from exc
+
+
+def _required_bool_env(name: str) -> bool:
+    raw = _required_env(name).lower()
+
+    if raw in {"1", "true", "yes", "on"}:
+        return True
+
+    if raw in {"0", "false", "no", "off"}:
+        return False
+
+    raise ConfigurationError(
+        f"{name} must be a boolean; got {raw!r}"
+    )
+
 
 @dataclass(frozen=True, slots=True)
 class Settings:
-    """Validated runtime configuration loaded from environment variables."""
-
     app_env: Environment
     log_level: str
     log_json: bool
 
+    audio_in_sample_rate: int
+
+    # LLM
     llm_base_url: str
     llm_api_key: str
     llm_model_name: str
     llm_temperature: float
     llm_max_completion_tokens: int
 
+    # STT
     stt_base_url: str
     stt_api_key: str
     stt_model: str
     stt_language: str | None
     stt_ttfs_p99_seconds: float
 
+    # TTS
     tts_base_url: str
     tts_api_key: str | None
     tts_model: str
@@ -80,16 +131,24 @@ class Settings:
     tts_speed: float
     tts_sample_rate: int
     tts_request_timeout_seconds: float
+    tts_http_connect_timeout_seconds: float
+    tts_response_format: str
+    tts_stream_format: str
+    tts_stream: bool
 
+    # Embedding
     embedding_model: str
     embedding_device: str
+    embedding_query_prompt: str
 
+    # Qdrant
     qdrant_collection: str
     qdrant_url: str | None
     qdrant_api_key: str | None
     qdrant_path: Path
     qdrant_timeout_seconds: float
 
+    # RAG
     rag_top_k: int
     rag_score_threshold: float
     rag_retrieval_timeout_seconds: float
@@ -98,6 +157,7 @@ class Settings:
     chunk_max_chars: int
     chunk_overlap_chars: int
     ingest_batch_size: int
+
     allow_collection_recreate: bool
     max_pdf_bytes: int
     max_pdf_pages: int
@@ -106,52 +166,71 @@ class Settings:
 
     @classmethod
     def from_env(cls) -> "Settings":
-        load_dotenv(override=False)
-        language = _env("STT_LANGUAGE", "en")
+        env_file = os.getenv("ECHOLEX_ENV_FILE", ".env")
+
+        load_dotenv(dotenv_path=env_file, override=False)
         app_env = _env("APP_ENV", "development").lower()
 
         settings = cls(
             app_env=app_env,  # type: ignore[arg-type]
             log_level=_env("LOG_LEVEL", "INFO").upper(),
             log_json=_bool_env("LOG_JSON", False),
-            llm_base_url=_env("LLM_BASE_URL", "http://127.0.0.1:8000/v1").rstrip("/"),
-            llm_api_key=_env("LLM_API_KEY", "local-not-a-secret"),
-            llm_model_name=_env("LLM_MODEL_NAME", "qwen3-4b-awq"),
-            llm_temperature=_float_env("LLM_TEMPERATURE", 0.15),
-            llm_max_completion_tokens=_int_env("LLM_MAX_COMPLETION_TOKENS", 320),
-            stt_base_url=_env("STT_BASE_URL", "http://127.0.0.1:8001/v1").rstrip("/"),
-            stt_api_key=_env("STT_API_KEY", "local-not-a-secret"),
-            stt_model=_env("STT_MODEL", "qwen3-asr-0.6b"),
-            stt_language=language or None,
-            stt_ttfs_p99_seconds=_float_env("STT_TTFS_P99_SECONDS", 0.8),
-            tts_base_url=_env("TTS_BASE_URL", "http://127.0.0.1:8002/v1").rstrip("/"),
+            audio_in_sample_rate=_required_int_env("AUDIO_IN_SAMPLE_RATE"),
+
+            # LLM
+            llm_base_url=_required_env("LLM_BASE_URL").rstrip("/"),
+            llm_api_key=_required_env("LLM_API_KEY"),
+            llm_model_name=_required_env("LLM_MODEL_NAME"),
+            llm_temperature=_required_float_env("LLM_TEMPERATURE"),
+            llm_max_completion_tokens=_required_int_env("LLM_MAX_COMPLETION_TOKENS"),
+
+            # STT
+            stt_base_url=_required_env("STT_BASE_URL").rstrip("/"),
+            stt_api_key=_required_env("STT_API_KEY"),
+            stt_model=_required_env("STT_MODEL"),
+            stt_language=_optional_env("STT_LANGUAGE"),
+            stt_ttfs_p99_seconds=_required_float_env("STT_TTFS_P99_SECONDS"),
+
+            # TTS
+            tts_base_url=_required_env("TTS_BASE_URL").rstrip("/"),
             tts_api_key=_optional_env("TTS_API_KEY"),
-            tts_model=_env("TTS_MODEL", "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice"),
-            tts_voice=_env("TTS_VOICE", "vivian"),
-            tts_language=_env("TTS_LANGUAGE", "English"),
-            tts_speed=_float_env("TTS_SPEED", 1.0),
-            tts_sample_rate=_int_env("TTS_SAMPLE_RATE", 24000),
-            tts_request_timeout_seconds=_float_env("TTS_REQUEST_TIMEOUT_SECONDS", 60.0),
-            embedding_model=_env("EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5"),
-            embedding_device=_env("EMBEDDING_DEVICE", "cpu"),
+            tts_model=_required_env("TTS_MODEL"),
+            tts_voice=_required_env("TTS_VOICE"),
+            tts_language=_required_env("TTS_LANGUAGE"),
+            tts_speed=_required_float_env("TTS_SPEED"),
+            tts_sample_rate=_required_int_env("TTS_SAMPLE_RATE"),
+            tts_request_timeout_seconds=_required_float_env( "TTS_REQUEST_TIMEOUT_SECONDS"),
+            tts_http_connect_timeout_seconds=_required_float_env("TTS_HTTP_CONNECT_TIMEOUT_SECONDS"),
+            tts_response_format=_required_env("TTS_RESPONSE_FORMAT"),
+            tts_stream_format=_required_env("TTS_STREAM_FORMAT"),
+            tts_stream=_required_bool_env("TTS_STREAM"),
+
+            # Embedding
+            embedding_model=_required_env("EMBEDDING_MODEL"),
+            embedding_device=_required_env("EMBEDDING_DEVICE"),
+            embedding_query_prompt=_required_env("EMBEDDING_QUERY_PROMPT"),
+
+            # Qdrant
             qdrant_collection=_env("QDRANT_COLLECTION", "echolex"),
             qdrant_url=_optional_env("QDRANT_URL"),
             qdrant_api_key=_optional_env("QDRANT_API_KEY"),
             qdrant_path=Path(_env("QDRANT_PATH", "./data/qdrant")),
             qdrant_timeout_seconds=_float_env("QDRANT_TIMEOUT_SECONDS", 5.0),
-            rag_top_k=_int_env("RAG_TOP_K", 4),
-            rag_score_threshold=_float_env("RAG_SCORE_THRESHOLD", 0.55),
-            rag_retrieval_timeout_seconds=_float_env("RAG_RETRIEVAL_TIMEOUT_SECONDS", 1.5),
-            rag_max_context_chars=_int_env("RAG_MAX_CONTEXT_CHARS", 6000),
-            chunk_max_chars=_int_env("CHUNK_MAX_CHARS", 1200),
-            chunk_overlap_chars=_int_env("CHUNK_OVERLAP_CHARS", 180),
-            ingest_batch_size=_int_env("INGEST_BATCH_SIZE", 64),
+
+            # RAG
+            rag_top_k=_required_int_env("RAG_TOP_K"),
+            rag_score_threshold=_required_float_env("RAG_SCORE_THRESHOLD"),
+            rag_retrieval_timeout_seconds=_required_float_env("RAG_RETRIEVAL_TIMEOUT_SECONDS"),
+            rag_max_context_chars=_required_int_env("RAG_MAX_CONTEXT_CHARS"),
+            chunk_max_chars=_required_int_env("CHUNK_MAX_CHARS"),
+            chunk_overlap_chars=_required_int_env("CHUNK_OVERLAP_CHARS"),
+            ingest_batch_size=_required_int_env("INGEST_BATCH_SIZE"),
             allow_collection_recreate=_bool_env("ALLOW_COLLECTION_RECREATE", False),
             max_pdf_bytes=_int_env("MAX_PDF_BYTES", 100 * 1024 * 1024),
             max_pdf_pages=_int_env("MAX_PDF_PAGES", 2000),
-            health_timeout_seconds=_float_env("HEALTH_TIMEOUT_SECONDS", 3.0),
-        )
+            health_timeout_seconds=_float_env("HEALTH_TIMEOUT_SECONDS", 3.0))
         settings.validate()
+
         return settings
 
     def validate(self) -> None:

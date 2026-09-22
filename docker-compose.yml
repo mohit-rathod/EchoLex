@@ -8,137 +8,57 @@ services:
       - "127.0.0.1:6333:6333"
     volumes:
       - qdrant-storage:/qdrant/storage
-  vllm-llm:
-    image: vllm/vllm-openai:v0.28.0
-    restart: unless-stopped
-    ipc: host
-    ports:
-      - "127.0.0.1:8000:8000"
-    volumes:
-      - vllm-hf-cache:/root/.cache/huggingface
     environment:
-      HF_HOME: /root/.cache/huggingface
-      VLLM_USE_V2_MODEL_RUNNER: "${VLLM_USE_V2_MODEL_RUNNER:-0}"
-    command:
-      - Qwen/Qwen3-4B-AWQ
-      - --served-model-name
-      - qwen3-4b-awq
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8000"
-      - --dtype
-      - auto
-      - --gpu-memory-utilization
-      - "0.30"
-      - --max-model-len
-      - "8192"
-      - --max-num-seqs
-      - "1"
-      # - --enforce-eager
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
+      QDRANT__TELEMETRY_DISABLED: "true"
     healthcheck:
       test:
         [
           "CMD-SHELL",
-          "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)\"",
+          "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:6333/healthz', timeout=2)\" || exit 1",
         ]
       interval: 10s
       timeout: 5s
-      retries: 30
-      start_period: 90s
-
-  vllm-stt:
-    build:
-      context: .
-      dockerfile: deploy/Dockerfile.vllm-stt
-    image: echolex-vllm-stt:v0.28.0
-    restart: unless-stopped
-    ipc: host
-    ports:
-      - "127.0.0.1:8001:8000"
-    volumes:
-      - vllm-hf-cache:/root/.cache/huggingface
-    environment:
-      HF_HOME: /root/.cache/huggingface
-      VLLM_USE_V2_MODEL_RUNNER: "${VLLM_USE_V2_MODEL_RUNNER:-0}"
-    command:
-      - Qwen/Qwen3-ASR-0.6B
-      - --served-model-name
-      - qwen3-asr-0.6b
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8000"
-      - --dtype
-      - bfloat16
-      - --max-model-len
-      - "3072"
-      - --gpu-memory-utilization
-      - "0.20"
-      - --max-num-seqs
-      - "1"
-      - --enforce-eager
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)\"",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 30
-      start_period: 90s
+      retries: 10
+      start_period: 10s
 
   vllm-tts:
-    image: vllm/vllm-omni:v0.28.0
+    image: "${VLLM_TTS_IMAGE:?Set VLLM_TTS_IMAGE in .env}"
     restart: unless-stopped
     ipc: host
+
     ports:
       - "127.0.0.1:8002:8000"
+
     volumes:
-      - vllm-hf-cache:/root/.cache/huggingface
-      - type: bind
-        source: ./deploy/qwen3_tts_16gb.yaml
-        target: /etc/vllm/qwen3_tts_16gb.yaml
-        read_only: true
-        bind:
-          create_host_path: false
+      - vllm-hf-cache:${HF_HOME:?Set HF_HOME in .env}
+
     environment:
-      HF_HOME: /root/.cache/huggingface
-      VLLM_USE_V2_MODEL_RUNNER: "${VLLM_USE_V2_MODEL_RUNNER:-0}"
+      HF_HOME: "${HF_HOME:?Set HF_HOME in .env}"
+      VLLM_USE_V2_MODEL_RUNNER: "${VLLM_USE_V2_MODEL_RUNNER:?Set VLLM_USE_V2_MODEL_RUNNER in .env}"
+
+    entrypoint:
+      - /bin/sh
+      - -ec
+
     command:
-      - vllm
-      - serve
-      - Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice
-      - --omni
-      - --host
-      - 0.0.0.0
-      - --port
-      - "8000"
-      - --dtype
-      - bfloat16
-      - --gpu-memory-utilization
-      - "0.20"
-      - --max-model-len
-      - "3072"
-      - --max-num-seqs
-      - "1"
-      - --enforce-eager
-      - --log-stats
+      - |
+        set -- vllm serve "${TTS_MODEL:?Set TTS_MODEL in .env}" \
+          --omni \
+          --host 0.0.0.0 \
+          --port 8000 \
+          --dtype "${TTS_DTYPE:?Set TTS_DTYPE in .env}" \
+          --stage-overrides '{"0":{"gpu_memory_utilization":${TTS_STAGE0_GPU_MEMORY_UTILIZATION:?Set TTS_STAGE0_GPU_MEMORY_UTILIZATION in .env},"max_num_seqs":${TTS_STAGE0_MAX_NUM_SEQS:?Set TTS_STAGE0_MAX_NUM_SEQS in .env},"enforce_eager":${TTS_STAGE0_ENFORCE_EAGER:?Set TTS_STAGE0_ENFORCE_EAGER in .env}},"1":{"gpu_memory_utilization":${TTS_STAGE1_GPU_MEMORY_UTILIZATION:?Set TTS_STAGE1_GPU_MEMORY_UTILIZATION in .env},"max_num_seqs":${TTS_STAGE1_MAX_NUM_SEQS:?Set TTS_STAGE1_MAX_NUM_SEQS in .env},"enforce_eager":${TTS_STAGE1_ENFORCE_EAGER:?Set TTS_STAGE1_ENFORCE_EAGER in .env}}}'
+
+        if [ "${TTS_QUANTIZATION:?Set TTS_QUANTIZATION in .env}" != "none" ]; then
+          set -- "$$@" --quantization "${TTS_QUANTIZATION:?Set TTS_QUANTIZATION in .env}"
+        fi
+
+        if [ "${TTS_LOG_STATS:?Set TTS_LOG_STATS in .env}" = "true" ]; then
+          set -- "$$@" --log-stats
+        fi
+
+        exec "$$@"
+
     deploy:
       resources:
         reservations:
@@ -146,6 +66,7 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+
     healthcheck:
       test:
         [
@@ -156,6 +77,139 @@ services:
       timeout: 5s
       retries: 40
       start_period: 120s
+
+  vllm-stt:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.vllm-stt
+      args:
+        VLLM_STT_BASE_IMAGE: "${VLLM_STT_BASE_IMAGE:?Set VLLM_STT_BASE_IMAGE in .env}"
+        VLLM_STT_AUDIO_VERSION: "${VLLM_STT_AUDIO_VERSION:?Set VLLM_STT_AUDIO_VERSION in .env}"
+
+    image: "${VLLM_STT_IMAGE:?Set VLLM_STT_IMAGE in .env}"
+    restart: unless-stopped
+    ipc: host
+
+    depends_on:
+      vllm-tts:
+        condition: service_healthy
+
+    ports:
+      - "127.0.0.1:8001:8000"
+
+    volumes:
+      - vllm-hf-cache:${HF_HOME:?Set HF_HOME in .env}
+
+    environment:
+      HF_HOME: "${HF_HOME:?Set HF_HOME in .env}"
+      VLLM_USE_V2_MODEL_RUNNER: "${VLLM_USE_V2_MODEL_RUNNER:?Set VLLM_USE_V2_MODEL_RUNNER in .env}"
+
+    entrypoint:
+      - /bin/sh
+      - -ec
+
+    command:
+      - |
+        set -- vllm serve "${STT_MODEL_REPOSITORY:?Set STT_MODEL_REPOSITORY in .env}" \
+          --served-model-name "${STT_MODEL:?Set STT_MODEL in .env}" \
+          --host 0.0.0.0 \
+          --port 8000 \
+          --dtype "${STT_DTYPE:?Set STT_DTYPE in .env}" \
+          --max-model-len "${STT_MAX_MODEL_LEN:?Set STT_MAX_MODEL_LEN in .env}" \
+          --gpu-memory-utilization "${STT_GPU_MEMORY_UTILIZATION:?Set STT_GPU_MEMORY_UTILIZATION in .env}" \
+          --max-num-seqs "${STT_MAX_NUM_SEQS:?Set STT_MAX_NUM_SEQS in .env}"
+
+        if [ "${STT_QUANTIZATION:?Set STT_QUANTIZATION in .env}" != "none" ]; then
+          set -- "$$@" --quantization "${STT_QUANTIZATION:?Set STT_QUANTIZATION in .env}"
+        fi
+
+        if [ "${STT_ENFORCE_EAGER:?Set STT_ENFORCE_EAGER in .env}" = "true" ]; then
+          set -- "$$@" --enforce-eager
+        fi
+
+        exec "$$@"
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
+
+  vllm-llm:
+    image: "${VLLM_LLM_IMAGE:?Set VLLM_LLM_IMAGE in .env}"
+    restart: unless-stopped
+    ipc: host
+
+    depends_on:
+      vllm-stt:
+        condition: service_healthy
+
+    ports:
+      - "127.0.0.1:8000:8000"
+
+    volumes:
+      - vllm-hf-cache:${HF_HOME:?Set HF_HOME in .env}
+
+    environment:
+      HF_HOME: "${HF_HOME:?Set HF_HOME in .env}"
+      VLLM_USE_V2_MODEL_RUNNER: "${VLLM_USE_V2_MODEL_RUNNER:?Set VLLM_USE_V2_MODEL_RUNNER in .env}"
+
+    entrypoint:
+      - /bin/sh
+      - -ec
+
+    command:
+      - |
+        set -- vllm serve "${LLM_MODEL_REPOSITORY:?Set LLM_MODEL_REPOSITORY in .env}" \
+          --served-model-name "${LLM_MODEL_NAME:?Set LLM_MODEL_NAME in .env}" \
+          --host 0.0.0.0 \
+          --port 8000 \
+          --dtype "${LLM_DTYPE:?Set LLM_DTYPE in .env}" \
+          --max-model-len "${LLM_MAX_MODEL_LEN:?Set LLM_MAX_MODEL_LEN in .env}" \
+          --gpu-memory-utilization "${LLM_GPU_MEMORY_UTILIZATION:?Set LLM_GPU_MEMORY_UTILIZATION in .env}" \
+          --max-num-seqs "${LLM_MAX_NUM_SEQS:?Set LLM_MAX_NUM_SEQS in .env}"
+
+        if [ "${LLM_QUANTIZATION:?Set LLM_QUANTIZATION in .env}" != "none" ]; then
+          set -- "$$@" --quantization "${LLM_QUANTIZATION:?Set LLM_QUANTIZATION in .env}"
+        fi
+
+        if [ "${LLM_ENFORCE_EAGER:?Set LLM_ENFORCE_EAGER in .env}" = "true" ]; then
+          set -- "$$@" --enforce-eager
+        fi
+
+        exec "$$@"
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python3 -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)\"",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 90s
 
 volumes:
   qdrant-storage:

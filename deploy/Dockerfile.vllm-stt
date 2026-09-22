@@ -1,17 +1,33 @@
 # syntax=docker/dockerfile:1.7
-FROM vllm/vllm-openai:v0.29.0
+
+ARG VLLM_STT_BASE_IMAGE
+FROM ${VLLM_STT_BASE_IMAGE}
+
+ARG VLLM_STT_AUDIO_VERSION
 
 USER root
 
-RUN --mount=type=secret,id=corporate_ca \
-    set -eu; \
-    apt-get update; \
-    apt-get install -y --no-install-recommends ca-certificates; \
-    if [ -f /run/secrets/corporate_ca ]; then \
-      cp /run/secrets/corporate_ca /usr/local/share/ca-certificates/corporate-ca.crt; \
-      update-ca-certificates; \
-    fi; \
-    rm -rf /var/lib/apt/lists/*; \
-    uv pip install --system "vllm[audio]==0.28.0"
-
+# Must exist before any uv command.
 ENV UV_SYSTEM_CERTS=true
+
+RUN test -n "${VLLM_STT_AUDIO_VERSION}" || \
+    (echo "VLLM_STT_AUDIO_VERSION build arg is required" >&2; exit 1)
+
+RUN --mount=type=secret,id=corporate_ca \
+    set -eux; \
+    \
+    if [ -f /run/secrets/corporate_ca ]; then \
+        cp /run/secrets/corporate_ca \
+           /usr/local/share/ca-certificates/corporate-ca.crt; \
+        update-ca-certificates; \
+    fi; \
+    \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        ca-certificates; \
+    rm -rf /var/lib/apt/lists/*; \
+    \
+    uv pip install \
+        --system \
+        --system-certs \
+        "vllm[audio]==${VLLM_STT_AUDIO_VERSION}"

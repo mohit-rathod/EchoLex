@@ -58,6 +58,10 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
         speed=settings.tts_speed,
         sample_rate=settings.tts_sample_rate,
         request_timeout_seconds=settings.tts_request_timeout_seconds,
+        connect_timeout_seconds=settings.tts_http_connect_timeout_seconds,
+        response_format=settings.tts_response_format,
+        stream_format=settings.tts_stream_format,
+        stream=settings.tts_stream,
     )
 
     context = LLMContext()
@@ -87,7 +91,7 @@ async def run_bot(transport: BaseTransport, runner_args: RunnerArguments) -> Non
     worker = PipelineWorker(
         pipeline,
         params=PipelineParams(
-            audio_in_sample_rate=16000,
+            audio_in_sample_rate=settings.audio_in_sample_rate,
             audio_out_sample_rate=settings.tts_sample_rate,
             enable_metrics=True,
             enable_usage_metrics=True,
