@@ -1,0 +1,40 @@
+# Echolex GPU observability collector.
+# Format: DCGM FIELD, Prometheus metric type, help message
+
+# Clocks
+DCGM_FI_DEV_SM_CLOCK, gauge, SM clock frequency in MHz.
+DCGM_FI_DEV_MEM_CLOCK, gauge, Memory clock frequency in MHz.
+
+# Temperature
+DCGM_FI_DEV_GPU_TEMP, gauge, GPU temperature in degrees Celsius.
+DCGM_FI_DEV_MEMORY_TEMP, gauge, GPU memory temperature in degrees Celsius.
+
+# Power
+DCGM_FI_DEV_POWER_USAGE, gauge, GPU power draw in watts.
+DCGM_FI_DEV_POWER_MGMT_LIMIT, gauge, Configured GPU power management limit in watts.
+
+# Framebuffer / VRAM
+DCGM_FI_DEV_FB_FREE, gauge, Framebuffer memory free in MiB.
+DCGM_FI_DEV_FB_USED, gauge, Framebuffer memory used in MiB.
+DCGM_FI_DEV_FB_RESERVED, gauge, Framebuffer memory reserved in MiB.
+
+# Utilization
+DCGM_FI_DEV_GPU_UTIL, gauge, GPU utilization in percent.
+DCGM_FI_DEV_MEM_COPY_UTIL, gauge, GPU memory copy utilization in percent.
+
+# Profiling / compute and bus bandwidth. Availability depends on GPU and driver support.
+DCGM_FI_PROF_GR_ENGINE_ACTIVE, gauge, Fraction of time the graphics or compute engine is active.
+DCGM_FI_PROF_PIPE_TENSOR_ACTIVE, gauge, Fraction of cycles tensor pipes are active.
+DCGM_FI_PROF_DRAM_ACTIVE, gauge, Fraction of cycles device memory is active.
+DCGM_FI_PROF_PCIE_TX_BYTES, gauge, PCIe transmit bandwidth from the GPU perspective in bytes per second.
+DCGM_FI_PROF_PCIE_RX_BYTES, gauge, PCIe receive bandwidth from the GPU perspective in bytes per second.
+
+# Reliability / throttling
+DCGM_FI_DEV_PCIE_REPLAY_COUNTER, counter, Total PCIe replay count.
+DCGM_FI_DEV_XID_ERRORS, gauge, Last XID error reported by the GPU driver.
+DCGM_FI_DEV_POWER_VIOLATION, counter, Time in nanoseconds throttled by power constraints.
+DCGM_FI_DEV_THERMAL_VIOLATION, counter, Time in nanoseconds throttled by thermal constraints.
+DCGM_FI_DEV_RELIABILITY_VIOLATION, counter, Time in nanoseconds throttled by reliability constraints.
+DCGM_FI_DEV_ECC_SBE_VOL_TOTAL, counter, Total volatile single-bit ECC errors.
+DCGM_FI_DEV_ECC_DBE_VOL_TOTAL, counter, Total volatile double-bit ECC errors.
+DCGM_FI_DEV_RETIRED_PENDING, gauge, Whether GPU pages are pending retirement.

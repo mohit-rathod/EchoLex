@@ -15,3 +15,5 @@ tests
 *.pem
 *.key
 *.crt
+*.patch
+docker-compose.zscaler.yml

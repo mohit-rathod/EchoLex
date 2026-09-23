@@ -36,3 +36,6 @@ dist/
 .idea/
 .DS_Store
 Thumbs.db
+docker-compose.zscaler.yml
+*.zip
+*.patch

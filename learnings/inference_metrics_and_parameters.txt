@@ -1,0 +1,44 @@
+## vLLM Level Metrics
+
+| Metric                    | What it actually tells you                                                                    |
+| -----------------------   | --------------------------------------------------------------------------------------------- |
+| TTFT                      | Time To First Token. vLLM measures it from request arrival through receiving the first output.|
+| E2E LLM latency           | Total time for LLM to generate the output.                                                    |
+|                           |   LLM E2E≈ Queue + Prefill + Decode + Overhead                                                |
+| TPOT                      | Time Per Output Token. Time taken to generate per output token.                               |
+|                           |   TPOT = (E2E time - TTFT)/(OutputTokens - 1)                                                 |
+|                           |   tokens/sec = 1/TPOT                                                                         |
+| ITL                       | Inter-Token Latency measures the gap between successive streamed output events.               |
+|                           |   "The" -> 0 ms, "document" -> +25 ms , "describes" -> +24 ms, "a" -> +30 ms,                 |
+|                           |   "building" -> +90 ms  ← noticeable stall                                                    |
+| Queue time                | How long request waited for GPU capacity.                                                     |
+| Prefill time              | Time taken to process the input at prefill stage.                                             |
+| Decode time               | Time spent in producing output.                                                               |
+| Prompt-token count        | The number of tokens in input. (Higher Prompt Tokens -> Higher TTFT time)                     |
+| Generated-token count     | The number of tokens in the input. (Higher Generated tokens -> Higher E2E time)               |
+| Output tokens/second      | Decode throughput.                                                                            |
+| Prompt throughput         | This tells you how quickly the engine can perform prefill.                                    |
+| Running requests          | This tells you how many requests are currently being executed.                                |
+| Waiting requests          | The number of requests waiting for the LLM.                                                   |
+| KV-cache utilization      | Measures the proportion of allocated GPU memory currently occupied by active KV tensor pairs  |
+|                           |   relative to the total capacity reserved for the KV cache pool during LLM inference.         |
+| Preemptions               | Means vLLM had to interrupt/remove some work because of lack of resources.                    |
+| Prefix-cache hit ratio    | The fraction of input tokens in LLM request that are successfully loaded from saved attention |
+|                           |   states rather than recomputed from scratch.                                                 |
+|                           |   HitRatio = prefix cache hits/prefix cache queries                                           |
+​| Request throughput        | How much actual workload can the system sustain.                                              |
+
+
+## System Level Metrics
+| GPU metric              | What it tells you                        |
+| ----------------------- | ---------------------------------------- |
+| GPU compute utilization | Is the GPU actually working?             |
+| VRAM used               | Total GPU-memory footprint               |
+| VRAM free               | Remaining headroom                       |
+| GPU temperature         | Thermal health                           |
+| SM clock                | Whether GPU is running at expected clock |
+| Memory clock            | Memory subsystem performance             |
+| PCIe traffic            | CPU↔GPU movement                         |
+| Throttling reasons      | Thermal/power/clock limits               |
+| GPU health/XID errors   | Hardware/driver reliability              |
+

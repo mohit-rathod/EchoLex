@@ -30,21 +30,6 @@ PDF
   -> Qdrant
 ```
 
-## Production-oriented guarantees in this revision
-
-- Settings are parsed and validated at process startup with actionable configuration errors.
-- `APP_ENV=production` rejects embedded Qdrant; configure `QDRANT_URL` for a standalone service.
-- LLM/STT/TTS credentials are configuration, not hard-coded runtime policy.
-- Retrieval context is bounded by `RAG_MAX_CONTEXT_CHARS` to prevent uncontrolled prompt growth.
-- Explicit rephrasing requests can reuse the previous evidence; factual follow-ups are re-retrieved with topic context.
-- Qdrant and HTTP clients have explicit timeouts and cleanup paths.
-- PDF ingestion has file-size and page-count limits.
-- TTS does not pass raw upstream error bodies to end users.
-- JSON logs can be enabled with `LOG_JSON=true`.
-- Health checks cover LLM, STT, TTS, and Qdrant.
-- Local secrets, model/vector data, certificates, caches, and source PDFs are excluded from Git/Docker contexts.
-- GitLab CI runs lint and unit tests from the lockfile.
-
 ## Repository layout
 
 ```text
@@ -122,18 +107,6 @@ MAX_PDF_BYTES=104857600
 MAX_PDF_PAGES=2000
 ```
 
-Do not commit `.env`, API keys, TLS private material, source PDFs, or Qdrant storage.
-
-## Quality gates
-
-```bash
-make lint
-make test
-make check
-```
-
-GitLab CI runs the same lint/test gates with `uv sync --frozen --dev`.
-
 ## Observability
 
 Start the local LGTM overlay:
@@ -141,9 +114,3 @@ Start the local LGTM overlay:
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.observability.yml up -d
 ```
-
-Set a real `GRAFANA_ADMIN_PASSWORD` in `.env` before exposing Grafana outside localhost. See `README_observability.md` for the supplied model/GPU dashboard and Prometheus configuration.
-
-## Deployment boundary
-
-This repository is now suitable as a production-oriented application baseline, but production readiness still depends on the environment around it. Before internet-facing or multi-tenant deployment, add the controls appropriate to your platform: authenticated ingress, TLS termination, secrets management, network policies, backup/restore for Qdrant, document tenancy/authorization, load testing, alerting/SLOs, vulnerability scanning, and a rollout/rollback strategy.

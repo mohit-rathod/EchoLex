@@ -1,25 +1,228 @@
 services:
+  node-exporter:
+    # Do not pull quay.io through the broken Zscaler proxy.
+    # Reuse the locally cached vLLM image.
+    image: "${VLLM_LLM_IMAGE:?Set VLLM_LLM_IMAGE in .env}"
+    pull_policy: never
+
+    container_name: talk-to-doc-node-exporter
+    restart: unless-stopped
+
+    pid: host
+
+    entrypoint:
+      - python3
+      - /opt/echolex/local_hardware_exporter.py
+
+    command:
+      - --mode
+      - node
+      - --port
+      - "9100"
+
+    environment:
+      HOST_PROC: /host/proc
+      HOST_SYS: /host/sys
+
+    volumes:
+      - ./observability/local_hardware_exporter.py:/opt/echolex/local_hardware_exporter.py:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+
+
+  dcgm-exporter:
+    # Zscaler-safe fallback.
+    # Uses nvidia-smi instead of pulling nvcr.io DCGM exporter.
+    #
+    # Service/job name remains dcgm-exporter so existing
+    # Prometheus and Grafana queries keep working.
+    image: "${VLLM_LLM_IMAGE:?Set VLLM_LLM_IMAGE in .env}"
+    pull_policy: never
+
+    container_name: talk-to-doc-dcgm-exporter
+    restart: unless-stopped
+
+    entrypoint:
+      - python3
+      - /opt/echolex/local_hardware_exporter.py
+
+    command:
+      - --mode
+      - gpu
+      - --port
+      - "9400"
+
+    environment:
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+
+    volumes:
+      - ./observability/local_hardware_exporter.py:/opt/echolex/local_hardware_exporter.py:ro
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+
   lgtm:
     image: grafana/otel-lgtm:latest
     container_name: talk-to-doc-lgtm
     restart: unless-stopped
+
+    depends_on:
+      - node-exporter
+      - dcgm-exporter
+
     ports:
       - "127.0.0.1:3000:3000"
       - "127.0.0.1:9090:9090"
       - "127.0.0.1:4317:4317"
       - "127.0.0.1:4318:4318"
+
     environment:
       GF_AUTH_ANONYMOUS_ENABLED: "false"
-      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-admin}"
+
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:?Set GRAFANA_ADMIN_USER in .env}"
       GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env}"
-      PROMETHEUS_EXTRA_ARGS: "--storage.tsdb.retention.time=7d"
+
+      PROMETHEUS_EXTRA_ARGS: >-
+        --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:?Set PROMETHEUS_RETENTION in .env}
+
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: >-
         /otel-lgtm/grafana/conf/provisioning/dashboards/custom/model-observability.json
+
+    configs:
+      - source: prometheus_config
+        target: /otel-lgtm/prometheus.yaml
+
     volumes:
       - lgtm-data:/data
-      - ./observability/prometheus.yaml:/otel-lgtm/prometheus.yaml:ro
       - ./observability/grafana/model-observability.json:/otel-lgtm/grafana/conf/provisioning/dashboards/custom/model-observability.json:ro
       - ./observability/grafana/dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/custom.yaml:ro
+
+configs:
+  prometheus_config:
+    content: |
+      ---
+      global:
+        scrape_interval: ${PROMETHEUS_SCRAPE_INTERVAL:?Set PROMETHEUS_SCRAPE_INTERVAL in .env}
+        evaluation_interval: ${PROMETHEUS_EVALUATION_INTERVAL:?Set PROMETHEUS_EVALUATION_INTERVAL in .env}
+        scrape_native_histograms: true
+
+      otlp:
+        keep_identifying_resource_attributes: true
+        promote_resource_attributes:
+          - service.instance.id
+          - service.name
+          - service.namespace
+          - service.version
+          - container.name
+          - deployment.environment.name
+          - host.name
+
+      storage:
+        tsdb:
+          out_of_order_time_window: 10m
+
+      scrape_configs:
+        # -----------------------------------------------------------
+        # Host / CPU / system memory
+        # -----------------------------------------------------------
+        - job_name: node-exporter
+          metrics_path: /metrics
+          static_configs:
+            - targets:
+                - node-exporter:9100
+
+        # -----------------------------------------------------------
+        # NVIDIA GPU / VRAM / thermals / PCIe
+        # -----------------------------------------------------------
+        - job_name: dcgm-exporter
+          metrics_path: /metrics
+          static_configs:
+            - targets:
+                - dcgm-exporter:9400
+
+        # -----------------------------------------------------------
+        # LLM
+        # -----------------------------------------------------------
+        - job_name: vllm-llm
+          metrics_path: /metrics
+          static_configs:
+            - targets:
+                - vllm-llm:8000
+              labels:
+                inference_role: llm
+                model_service: "${LLM_MODEL_NAME:?Set LLM_MODEL_NAME in .env}"
+                model_repository: "${LLM_MODEL_REPOSITORY:?Set LLM_MODEL_REPOSITORY in .env}"
+                model_dtype: "${LLM_DTYPE:?Set LLM_DTYPE in .env}"
+                model_quantization: "${LLM_QUANTIZATION:?Set LLM_QUANTIZATION in .env}"
+                max_model_len: "${LLM_MAX_MODEL_LEN:?Set LLM_MAX_MODEL_LEN in .env}"
+                max_num_seqs: "${LLM_MAX_NUM_SEQS:?Set LLM_MAX_NUM_SEQS in .env}"
+                gpu_memory_utilization: "${LLM_GPU_MEMORY_UTILIZATION:?Set LLM_GPU_MEMORY_UTILIZATION in .env}"
+                enforce_eager: "${LLM_ENFORCE_EAGER:?Set LLM_ENFORCE_EAGER in .env}"
+                llm_temperature: "${LLM_TEMPERATURE:?Set LLM_TEMPERATURE in .env}"
+                llm_max_completion_tokens: "${LLM_MAX_COMPLETION_TOKENS:?Set LLM_MAX_COMPLETION_TOKENS in .env}"
+
+        # -----------------------------------------------------------
+        # STT
+        # -----------------------------------------------------------
+        - job_name: vllm-stt
+          metrics_path: /metrics
+          static_configs:
+            - targets:
+                - vllm-stt:8000
+              labels:
+                inference_role: stt
+                model_service: "${STT_MODEL:?Set STT_MODEL in .env}"
+                model_repository: "${STT_MODEL_REPOSITORY:?Set STT_MODEL_REPOSITORY in .env}"
+                model_dtype: "${STT_DTYPE:?Set STT_DTYPE in .env}"
+                model_quantization: "${STT_QUANTIZATION:?Set STT_QUANTIZATION in .env}"
+                max_model_len: "${STT_MAX_MODEL_LEN:?Set STT_MAX_MODEL_LEN in .env}"
+                max_num_seqs: "${STT_MAX_NUM_SEQS:?Set STT_MAX_NUM_SEQS in .env}"
+                gpu_memory_utilization: "${STT_GPU_MEMORY_UTILIZATION:?Set STT_GPU_MEMORY_UTILIZATION in .env}"
+                enforce_eager: "${STT_ENFORCE_EAGER:?Set STT_ENFORCE_EAGER in .env}"
+                stt_language: "${STT_LANGUAGE}"
+                stt_ttfs_p99_seconds: "${STT_TTFS_P99_SECONDS:?Set STT_TTFS_P99_SECONDS in .env}"
+                audio_in_sample_rate: "${AUDIO_IN_SAMPLE_RATE:?Set AUDIO_IN_SAMPLE_RATE in .env}"
+
+        # -----------------------------------------------------------
+        # TTS
+        # -----------------------------------------------------------
+        - job_name: vllm-tts
+          metrics_path: /metrics
+          static_configs:
+            - targets:
+                - vllm-tts:8000
+              labels:
+                inference_role: tts
+                model_service: "${TTS_MODEL:?Set TTS_MODEL in .env}"
+                model_repository: "${TTS_MODEL:?Set TTS_MODEL in .env}"
+                model_dtype: "${TTS_DTYPE:?Set TTS_DTYPE in .env}"
+                model_quantization: "${TTS_QUANTIZATION:?Set TTS_QUANTIZATION in .env}"
+                tts_voice: "${TTS_VOICE:?Set TTS_VOICE in .env}"
+                tts_language: "${TTS_LANGUAGE:?Set TTS_LANGUAGE in .env}"
+                tts_speed: "${TTS_SPEED:?Set TTS_SPEED in .env}"
+                tts_sample_rate: "${TTS_SAMPLE_RATE:?Set TTS_SAMPLE_RATE in .env}"
+                tts_stage0_gpu_memory_utilization: "${TTS_STAGE0_GPU_MEMORY_UTILIZATION:?Set TTS_STAGE0_GPU_MEMORY_UTILIZATION in .env}"
+                tts_stage0_max_num_seqs: "${TTS_STAGE0_MAX_NUM_SEQS:?Set TTS_STAGE0_MAX_NUM_SEQS in .env}"
+                tts_stage0_enforce_eager: "${TTS_STAGE0_ENFORCE_EAGER:?Set TTS_STAGE0_ENFORCE_EAGER in .env}"
+                tts_stage1_gpu_memory_utilization: "${TTS_STAGE1_GPU_MEMORY_UTILIZATION:?Set TTS_STAGE1_GPU_MEMORY_UTILIZATION in .env}"
+                tts_stage1_max_num_seqs: "${TTS_STAGE1_MAX_NUM_SEQS:?Set TTS_STAGE1_MAX_NUM_SEQS in .env}"
+                tts_stage1_enforce_eager: "${TTS_STAGE1_ENFORCE_EAGER:?Set TTS_STAGE1_ENFORCE_EAGER in .env}"
+
+        # -----------------------------------------------------------
+        # Qdrant
+        # -----------------------------------------------------------
+        - job_name: qdrant
+          metrics_path: /metrics
+          static_configs:
+            - targets:
+                - qdrant:6333
 
 volumes:
   lgtm-data:
