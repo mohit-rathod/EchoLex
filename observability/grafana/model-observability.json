@@ -15,7 +15,7 @@
       }
     ]
   },
-  "description": "Inference-only observability for the EchoLex LLM, speech-to-text and text-to-speech model servers. Select All for a combined comparison or choose an individual model.",
+  "description": "Reliability-first observability for Echolex: Linux host, NVIDIA GPU/VRAM, vLLM LLM/STT, vLLM-Omni TTS and combined inference fleet health. Exact last-request latency is intentionally not inferred from Prometheus histograms.",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
@@ -26,7 +26,7 @@
     {
       "id": 1,
       "type": "row",
-      "title": "Model inventory and live summary",
+      "title": "00 · Reliability summary",
       "collapsed": false,
       "gridPos": {
         "x": 0,
@@ -39,7 +39,7 @@
     {
       "id": 2,
       "type": "stat",
-      "title": "Scrape health",
+      "title": "Model scrape health",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -52,8 +52,126 @@
       },
       "targets": [
         {
-          "expr": "min by (model_service) (up{job=~\"vllm-.*\",model_service=~\"$model\"})",
-          "legendFormat": "{{model_service}}",
+          "expr": "min(up{job=~\"vllm-.*\"})",
+          "legendFormat": "all models",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "red"
+              },
+              {
+                "value": 1,
+                "color": "green"
+              }
+            ]
+          },
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "description": "1 means every vLLM/vLLM-Omni target is being scraped successfully."
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Infrastructure scrape health",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 1,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "min(up{job=~\"(node-exporter|dcgm-exporter|qdrant)\"})",
+          "legendFormat": "infra",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "red"
+              },
+              {
+                "value": 1,
+                "color": "green"
+              }
+            ]
+          },
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "description": "Host, GPU exporter and Qdrant scrape health."
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Running requests · all models",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 1,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "(sum(vllm:num_requests_running{job=~\"vllm-(llm|stt)\"}) or vector(0)) + (sum(vllm_omni:num_requests_running{job=\"vllm-tts\"}) or vector(0))",
+          "legendFormat": "running",
           "refId": "A"
         }
       ],
@@ -78,26 +196,2820 @@
         },
         "overrides": []
       },
-      "description": "1 means Prometheus can scrape the model server; 0 means the target is unavailable."
+      "description": "Current requests executing across all inference services."
     },
     {
-      "id": 3,
+      "id": 5,
       "type": "stat",
-      "title": "Completed requests / sec",
+      "title": "Waiting requests · all models",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 4,
+        "x": 12,
         "y": 1,
         "w": 4,
         "h": 5
       },
       "targets": [
         {
-          "expr": "sum by (model_service) (rate(vllm:request_success_total{job=~\"vllm-.*\",model_service=~\"$model\",inference_role!=\"tts\"}[1m])) or sum by (model_service) (rate(vllm_omni:requests_success_total{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[1m]))",
-          "legendFormat": "{{model_service}}",
+          "expr": "(sum(vllm:num_requests_waiting{job=~\"vllm-(llm|stt)\"}) or vector(0)) + (sum(vllm_omni:num_requests_waiting{job=\"vllm-tts\"}) or vector(0))",
+          "legendFormat": "waiting",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "yellow"
+              },
+              {
+                "value": 3,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": "Current queue depth across all inference services."
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Request throughput · all models",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "(sum(rate(vllm:request_success_total{job=~\"vllm-(llm|stt)\"}[1m]) or rate(vllm:request_success{job=~\"vllm-(llm|stt)\"}[1m])) or vector(0)) + (sum(rate(vllm_omni:requests_success_total{job=\"vllm-tts\"}[1m]) or rate(vllm_omni:requests_success{job=\"vllm-tts\"}[1m])) or vector(0))",
+          "legendFormat": "completed",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": "Completed request throughput across LLM, STT and TTS."
+    },
+    {
+      "id": 7,
+      "type": "stat",
+      "title": "Preemptions / min",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 1,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(vllm:num_preemptions_total{job=~\"vllm-(llm|stt)\"}[5m]) or rate(vllm:num_preemptions{job=~\"vllm-(llm|stt)\"}[5m])) * 60",
+          "legendFormat": "preemptions",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 0.000001,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": "Scheduler preemptions across standard vLLM engines. Sustained non-zero values indicate resource pressure."
+    },
+    {
+      "id": 8,
+      "type": "gauge",
+      "title": "CPU utilization",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 4,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "100 * (sum(1 - rate(node_cpu_seconds_total{job=\"node-exporter\",mode=\"idle\"}[1m]))) / (count(node_cpu_seconds_total{job=\"node-exporter\",mode=\"idle\"}))",
+          "legendFormat": "CPU",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "N/A",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 70,
+                "color": "yellow"
+              },
+              {
+                "value": 85,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": "Busy CPU time across all logical cores."
+    },
+    {
+      "id": 9,
+      "type": "gauge",
+      "title": "Host RAM used",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 6,
+        "w": 4,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "100 * (1 - (sum(node_memory_MemAvailable_bytes{job=\"node-exporter\"})) / (sum(node_memory_MemTotal_bytes{job=\"node-exporter\"})))",
+          "legendFormat": "RAM",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "N/A",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 80,
+                "color": "yellow"
+              },
+              {
+                "value": 92,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": "System RAM used percentage based on MemAvailable."
+    },
+    {
+      "id": 10,
+      "type": "gauge",
+      "title": "GPU compute utilization",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 6,
+        "w": 4,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "max(DCGM_FI_DEV_GPU_UTIL{job=\"dcgm-exporter\",gpu=~\"$gpu\"})",
+          "legendFormat": "GPU",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "N/A",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 70,
+                "color": "yellow"
+              },
+              {
+                "value": 85,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": "Maximum GPU utilization among selected GPUs."
+    },
+    {
+      "id": 11,
+      "type": "gauge",
+      "title": "VRAM used",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 6,
+        "w": 4,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "100 * (sum(DCGM_FI_DEV_FB_USED{job=\"dcgm-exporter\",gpu=~\"$gpu\"}) * 1024 * 1024) / ((sum(DCGM_FI_DEV_FB_USED{job=\"dcgm-exporter\",gpu=~\"$gpu\"}) * 1024 * 1024) + (sum(DCGM_FI_DEV_FB_FREE{job=\"dcgm-exporter\",gpu=~\"$gpu\"}) * 1024 * 1024) + ((sum(DCGM_FI_DEV_FB_RESERVED{job=\"dcgm-exporter\",gpu=~\"$gpu\"}) or vector(0)) * 1024 * 1024))",
+          "legendFormat": "VRAM",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "N/A",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 80,
+                "color": "yellow"
+              },
+              {
+                "value": 92,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": "Total selected-GPU framebuffer memory used percentage."
+    },
+    {
+      "id": 12,
+      "type": "gauge",
+      "title": "Fleet KV cache · max",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 6,
+        "w": 4,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "100 * max(vllm:kv_cache_usage_perc{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"})",
+          "legendFormat": "KV",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "N/A",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 70,
+                "color": "yellow"
+              },
+              {
+                "value": 90,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": "Maximum KV-cache utilization across selected standard vLLM models. Max is used instead of average so a saturated model is not hidden."
+    },
+    {
+      "id": 13,
+      "type": "gauge",
+      "title": "GPU temperature · max",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 6,
+        "w": 4,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "max(DCGM_FI_DEV_GPU_TEMP{job=\"dcgm-exporter\",gpu=~\"$gpu\"})",
+          "legendFormat": "GPU",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "noValue": "N/A",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 75,
+                "color": "yellow"
+              },
+              {
+                "value": 85,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": "Maximum GPU temperature among selected GPUs."
+    },
+    {
+      "id": 14,
+      "type": "text",
+      "title": "Metric semantics · exact last-request values",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 24,
+        "h": 4
+      },
+      "targets": [],
+      "options": {
+        "mode": "markdown",
+        "content": "**Exact values for the last completed request are not retained by stock Prometheus histograms.** TTFT, E2E, TPOT, queue, prefill, decode and per-request token counts are therefore shown as **recent mean (1 minute)**, **rolling mean (5 minutes)** and/or percentiles. Current gauges such as running requests, waiting requests and KV-cache usage are exact at scrape time. To display the literal last request, emit request-level metrics/logs/traces from the caller or a request-aware proxy with a request ID and completion timestamp; do not infer it from histogram buckets."
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      }
+    },
+    {
+      "id": 15,
+      "type": "row",
+      "title": "01 · Host system · CPU and memory",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 16,
+      "type": "stat",
+      "title": "System RAM · total",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum(node_memory_MemTotal_bytes{job=\"node-exporter\"})",
+          "legendFormat": "total",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 17,
+      "type": "stat",
+      "title": "System RAM · used",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 17,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "(sum(node_memory_MemTotal_bytes{job=\"node-exporter\"})) - (sum(node_memory_MemAvailable_bytes{job=\"node-exporter\"}))",
+          "legendFormat": "used",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 18,
+      "type": "stat",
+      "title": "System RAM · used %",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 17,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "100 * (1 - (sum(node_memory_MemAvailable_bytes{job=\"node-exporter\"})) / (sum(node_memory_MemTotal_bytes{job=\"node-exporter\"})))",
+          "legendFormat": "used",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "N/A",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 80,
+                "color": "yellow"
+              },
+              {
+                "value": 92,
+                "color": "red"
+              }
+            ]
+          },
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 19,
+      "type": "stat",
+      "title": "System RAM · available",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 17,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum(node_memory_MemAvailable_bytes{job=\"node-exporter\"})",
+          "legendFormat": "available",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 20,
+      "type": "stat",
+      "title": "System RAM · available %",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 17,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "100 * (sum(node_memory_MemAvailable_bytes{job=\"node-exporter\"})) / (sum(node_memory_MemTotal_bytes{job=\"node-exporter\"}))",
+          "legendFormat": "available",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "N/A",
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 21,
+      "type": "stat",
+      "title": "CPU temperature · max",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 17,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "max(node_hwmon_temp_celsius{job=\"node-exporter\",chip=~\".*(coretemp|k10temp|zenpower|cpu).*\"}) or max(node_thermal_zone_temp{job=\"node-exporter\",type=~\".*(cpu|x86).*\"})",
+          "legendFormat": "CPU",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "noValue": "N/A",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 75,
+                "color": "yellow"
+              },
+              {
+                "value": 90,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": "Maximum CPU-related hwmon/thermal-zone sensor when exposed by the Linux host."
+    },
+    {
+      "id": 22,
+      "type": "stat",
+      "title": "CPU logical cores",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "count(node_cpu_seconds_total{job=\"node-exporter\",mode=\"idle\"})",
+          "legendFormat": "cores",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": "Logical processors visible to the host exporter."
+    },
+    {
+      "id": 23,
+      "type": "stat",
+      "title": "CPU busy cores",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 22,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum(1 - rate(node_cpu_seconds_total{job=\"node-exporter\",mode=\"idle\"}[1m]))",
+          "legendFormat": "busy cores",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "description": "Equivalent number of logical CPU cores currently busy over the last minute."
+    },
+    {
+      "id": 24,
+      "type": "stat",
+      "title": "CPU utilization %",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 22,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "100 * (sum(1 - rate(node_cpu_seconds_total{job=\"node-exporter\",mode=\"idle\"}[1m]))) / (count(node_cpu_seconds_total{job=\"node-exporter\",mode=\"idle\"}))",
+          "legendFormat": "CPU",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "N/A",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 70,
+                "color": "yellow"
+              },
+              {
+                "value": 85,
+                "color": "red"
+              }
+            ]
+          },
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 25,
+      "type": "stat",
+      "title": "Load average · 1m",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 22,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum(node_load1{job=\"node-exporter\"})",
+          "legendFormat": "load",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "description": "Linux 1-minute load average. Compare it with logical core count."
+    },
+    {
+      "id": 26,
+      "type": "timeseries",
+      "title": "CPU utilization and busy-core pressure",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "100 * (sum(1 - rate(node_cpu_seconds_total{job=\"node-exporter\",mode=\"idle\"}[1m]))) / (count(node_cpu_seconds_total{job=\"node-exporter\",mode=\"idle\"}))",
+          "legendFormat": "CPU utilization %",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "N/A",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "description": "CPU utilization trend. Use the busy-core stat above to convert percentage into effective cores."
+    },
+    {
+      "id": 27,
+      "type": "timeseries",
+      "title": "System memory used / available",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 27,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "((sum(node_memory_MemTotal_bytes{job=\"node-exporter\"})) - (sum(node_memory_MemAvailable_bytes{job=\"node-exporter\"})))",
+          "legendFormat": "used",
+          "refId": "A"
+        },
+        {
+          "expr": "(sum(node_memory_MemAvailable_bytes{job=\"node-exporter\"}))",
+          "legendFormat": "available",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "N/A",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 28,
+      "type": "timeseries",
+      "title": "CPU temperature sensors",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 35,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "node_hwmon_temp_celsius{job=\"node-exporter\",chip=~\".*(coretemp|k10temp|zenpower|cpu).*\"}",
+          "legendFormat": "{{chip}} / {{sensor}}",
+          "refId": "A"
+        },
+        {
+          "expr": "node_thermal_zone_temp{job=\"node-exporter\",type=~\".*(cpu|x86).*\"}",
+          "legendFormat": "{{type}} / zone {{zone}}",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "noValue": "N/A",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "description": "No data is expected if the host/WSL2 VM does not expose thermal sensors into /sys."
+    },
+    {
+      "id": 29,
+      "type": "timeseries",
+      "title": "CPU load average",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 35,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "node_load1{job=\"node-exporter\"}",
+          "legendFormat": "1m",
+          "refId": "A"
+        },
+        {
+          "expr": "node_load5{job=\"node-exporter\"}",
+          "legendFormat": "5m",
+          "refId": "B"
+        },
+        {
+          "expr": "node_load15{job=\"node-exporter\"}",
+          "legendFormat": "15m",
+          "refId": "C"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false
+          }
+        },
+        "overrides": []
+      },
+      "description": "Linux scheduler load, useful for detecting CPU-side backpressure around tokenization, audio processing and data movement."
+    },
+    {
+      "id": 30,
+      "type": "row",
+      "title": "02 · NVIDIA GPU · VRAM, compute, thermal and PCIe",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 43,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 31,
+      "type": "stat",
+      "title": "VRAM · total",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 44,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "(sum(DCGM_FI_DEV_FB_USED{job=\"dcgm-exporter\",gpu=~\"$gpu\"}) * 1024 * 1024) + (sum(DCGM_FI_DEV_FB_FREE{job=\"dcgm-exporter\",gpu=~\"$gpu\"}) * 1024 * 1024) + ((sum(DCGM_FI_DEV_FB_RESERVED{job=\"dcgm-exporter\",gpu=~\"$gpu\"}) or vector(0)) * 1024 * 1024)",
+          "legendFormat": "selected GPU(s)",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": "Used + free + reserved framebuffer memory."
+    },
+    {
+      "id": 32,
+      "type": "stat",
+      "title": "VRAM · used",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 44,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum(DCGM_FI_DEV_FB_USED{job=\"dcgm-exporter\",gpu=~\"$gpu\"}) * 1024 * 1024",
+          "legendFormat": "used",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 33,
+      "type": "stat",
+      "title": "VRAM · used %",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 44,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "100 * (sum(DCGM_FI_DEV_FB_USED{job=\"dcgm-exporter\",gpu=~\"$gpu\"}) * 1024 * 1024) / ((sum(DCGM_FI_DEV_FB_USED{job=\"dcgm-exporter\",gpu=~\"$gpu\"}) * 1024 * 1024) + (sum(DCGM_FI_DEV_FB_FREE{job=\"dcgm-exporter\",gpu=~\"$gpu\"}) * 1024 * 1024) + ((sum(DCGM_FI_DEV_FB_RESERVED{job=\"dcgm-exporter\",gpu=~\"$gpu\"}) or vector(0)) * 1024 * 1024))",
+          "legendFormat": "used",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "N/A",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 80,
+                "color": "yellow"
+              },
+              {
+                "value": 92,
+                "color": "red"
+              }
+            ]
+          },
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 34,
+      "type": "stat",
+      "title": "VRAM · free",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 44,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum(DCGM_FI_DEV_FB_FREE{job=\"dcgm-exporter\",gpu=~\"$gpu\"}) * 1024 * 1024",
+          "legendFormat": "free",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 35,
+      "type": "stat",
+      "title": "VRAM · free %",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 44,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "100 * (sum(DCGM_FI_DEV_FB_FREE{job=\"dcgm-exporter\",gpu=~\"$gpu\"}) * 1024 * 1024) / ((sum(DCGM_FI_DEV_FB_USED{job=\"dcgm-exporter\",gpu=~\"$gpu\"}) * 1024 * 1024) + (sum(DCGM_FI_DEV_FB_FREE{job=\"dcgm-exporter\",gpu=~\"$gpu\"}) * 1024 * 1024) + ((sum(DCGM_FI_DEV_FB_RESERVED{job=\"dcgm-exporter\",gpu=~\"$gpu\"}) or vector(0)) * 1024 * 1024))",
+          "legendFormat": "free",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "N/A",
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 36,
+      "type": "stat",
+      "title": "GPU temperature · max",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 44,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "max(DCGM_FI_DEV_GPU_TEMP{job=\"dcgm-exporter\",gpu=~\"$gpu\"})",
+          "legendFormat": "GPU",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "noValue": "N/A",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 75,
+                "color": "yellow"
+              },
+              {
+                "value": 85,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 37,
+      "type": "gauge",
+      "title": "GPU utilization",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 49,
+        "w": 6,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "max(DCGM_FI_DEV_GPU_UTIL{job=\"dcgm-exporter\",gpu=~\"$gpu\"})",
+          "legendFormat": "GPU",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "N/A",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 70,
+                "color": "yellow"
+              },
+              {
+                "value": 85,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": "DCGM device utilization (%)."
+    },
+    {
+      "id": 38,
+      "type": "gauge",
+      "title": "Compute-engine active",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 49,
+        "w": 6,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "100 * max(DCGM_FI_PROF_GR_ENGINE_ACTIVE{job=\"dcgm-exporter\",gpu=~\"$gpu\"})",
+          "legendFormat": "GR engine",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "N/A",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 70,
+                "color": "yellow"
+              },
+              {
+                "value": 85,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": "Profiling ratio for graphics/compute engine active time. Hardware/driver support is required."
+    },
+    {
+      "id": 39,
+      "type": "gauge",
+      "title": "Tensor-pipe active",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 49,
+        "w": 6,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "100 * max(DCGM_FI_PROF_PIPE_TENSOR_ACTIVE{job=\"dcgm-exporter\",gpu=~\"$gpu\"})",
+          "legendFormat": "tensor",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "N/A",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 70,
+                "color": "yellow"
+              },
+              {
+                "value": 85,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": "Tensor-pipe active ratio when supported by the GPU."
+    },
+    {
+      "id": 40,
+      "type": "gauge",
+      "title": "DRAM active",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 49,
+        "w": 6,
+        "h": 6
+      },
+      "targets": [
+        {
+          "expr": "100 * max(DCGM_FI_PROF_DRAM_ACTIVE{job=\"dcgm-exporter\",gpu=~\"$gpu\"})",
+          "legendFormat": "DRAM",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "N/A",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 70,
+                "color": "yellow"
+              },
+              {
+                "value": 85,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": "Fraction of cycles with device-memory traffic, when profiling metrics are supported."
+    },
+    {
+      "id": 41,
+      "type": "timeseries",
+      "title": "GPU utilization · per GPU",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 55,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "DCGM_FI_DEV_GPU_UTIL{job=\"dcgm-exporter\",gpu=~\"$gpu\"}",
+          "legendFormat": "GPU {{gpu}} · {{modelName}}",
+          "refId": "A"
+        },
+        {
+          "expr": "100 * DCGM_FI_PROF_GR_ENGINE_ACTIVE{job=\"dcgm-exporter\",gpu=~\"$gpu\"}",
+          "legendFormat": "GPU {{gpu}} · compute-engine active",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "N/A",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 42,
+      "type": "timeseries",
+      "title": "VRAM used / free · per GPU",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 55,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "DCGM_FI_DEV_FB_USED{job=\"dcgm-exporter\",gpu=~\"$gpu\"} * 1024 * 1024",
+          "legendFormat": "GPU {{gpu}} used",
+          "refId": "A"
+        },
+        {
+          "expr": "DCGM_FI_DEV_FB_FREE{job=\"dcgm-exporter\",gpu=~\"$gpu\"} * 1024 * 1024",
+          "legendFormat": "GPU {{gpu}} free",
+          "refId": "B"
+        },
+        {
+          "expr": "DCGM_FI_DEV_FB_RESERVED{job=\"dcgm-exporter\",gpu=~\"$gpu\"} * 1024 * 1024",
+          "legendFormat": "GPU {{gpu}} reserved",
+          "refId": "C"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "N/A",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 43,
+      "type": "timeseries",
+      "title": "GPU and memory temperature",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 63,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "DCGM_FI_DEV_GPU_TEMP{job=\"dcgm-exporter\",gpu=~\"$gpu\"}",
+          "legendFormat": "GPU {{gpu}} core",
+          "refId": "A"
+        },
+        {
+          "expr": "DCGM_FI_DEV_MEMORY_TEMP{job=\"dcgm-exporter\",gpu=~\"$gpu\"}",
+          "legendFormat": "GPU {{gpu}} memory",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "noValue": "N/A",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "description": "Use this with throttling panels below to distinguish high temperature from actual thermal limiting."
+    },
+    {
+      "id": 44,
+      "type": "timeseries",
+      "title": "PCIe bandwidth",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 63,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "DCGM_FI_PROF_PCIE_RX_BYTES{job=\"dcgm-exporter\",gpu=~\"$gpu\"}",
+          "legendFormat": "GPU {{gpu}} RX · host → device",
+          "refId": "A"
+        },
+        {
+          "expr": "DCGM_FI_PROF_PCIE_TX_BYTES{job=\"dcgm-exporter\",gpu=~\"$gpu\"}",
+          "legendFormat": "GPU {{gpu}} TX · device → host",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "noValue": "N/A",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "description": "DCGM profiling PCIe bandwidth. These fields are hardware/driver dependent; N/A is valid when unsupported."
+    },
+    {
+      "id": 45,
+      "type": "timeseries",
+      "title": "GPU power and clocks",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 71,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "DCGM_FI_DEV_POWER_USAGE{job=\"dcgm-exporter\",gpu=~\"$gpu\"}",
+          "legendFormat": "GPU {{gpu}} power (W)",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "watt",
+          "noValue": "N/A",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 46,
+      "type": "timeseries",
+      "title": "GPU clocks",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 71,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "DCGM_FI_DEV_SM_CLOCK{job=\"dcgm-exporter\",gpu=~\"$gpu\"} * 1000000",
+          "legendFormat": "GPU {{gpu}} SM",
+          "refId": "A"
+        },
+        {
+          "expr": "DCGM_FI_DEV_MEM_CLOCK{job=\"dcgm-exporter\",gpu=~\"$gpu\"} * 1000000",
+          "legendFormat": "GPU {{gpu}} memory",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "hertz",
+          "noValue": "N/A",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "description": "Clock drops during load can indicate thermal or power throttling."
+    },
+    {
+      "id": 47,
+      "type": "stat",
+      "title": "Last GPU XID code",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 79,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "max(DCGM_FI_DEV_XID_ERRORS{job=\"dcgm-exporter\",gpu=~\"$gpu\"})",
+          "legendFormat": "XID",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 0.000001,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": "0 / N/A is normal. A non-zero XID code should be correlated with driver logs and NVIDIA XID documentation."
+    },
+    {
+      "id": 48,
+      "type": "stat",
+      "title": "Pending retired pages",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 79,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "max(DCGM_FI_DEV_RETIRED_PENDING{job=\"dcgm-exporter\",gpu=~\"$gpu\"})",
+          "legendFormat": "pending",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 0.000001,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": "1 means a GPU page is pending retirement."
+    },
+    {
+      "id": 49,
+      "type": "stat",
+      "title": "PCIe replays · last 5m",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 79,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(DCGM_FI_DEV_PCIE_REPLAY_COUNTER{job=\"dcgm-exporter\",gpu=~\"$gpu\"}[5m]))",
+          "legendFormat": "replays",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": "Growth can indicate PCIe link integrity or transport issues."
+    },
+    {
+      "id": 50,
+      "type": "stat",
+      "title": "ECC double-bit errors · last 5m",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 79,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(DCGM_FI_DEV_ECC_DBE_VOL_TOTAL{job=\"dcgm-exporter\",gpu=~\"$gpu\"}[5m]))",
+          "legendFormat": "DBE",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 0.000001,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": "Uncorrectable/double-bit ECC errors are a high-priority hardware reliability signal."
+    },
+    {
+      "id": 51,
+      "type": "timeseries",
+      "title": "GPU throttling pressure",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 84,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "100 * rate(DCGM_FI_DEV_THERMAL_VIOLATION{job=\"dcgm-exporter\",gpu=~\"$gpu\"}[5m]) / 1e9",
+          "legendFormat": "GPU {{gpu}} thermal-limited time",
+          "refId": "A"
+        },
+        {
+          "expr": "100 * rate(DCGM_FI_DEV_POWER_VIOLATION{job=\"dcgm-exporter\",gpu=~\"$gpu\"}[5m]) / 1e9",
+          "legendFormat": "GPU {{gpu}} power-limited time",
+          "refId": "B"
+        },
+        {
+          "expr": "100 * rate(DCGM_FI_DEV_RELIABILITY_VIOLATION{job=\"dcgm-exporter\",gpu=~\"$gpu\"}[5m]) / 1e9",
+          "legendFormat": "GPU {{gpu}} reliability-limited time",
+          "refId": "C"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "N/A",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "description": "Percent of wall time spent under a DCGM limiter over the last 5 minutes."
+    },
+    {
+      "id": 52,
+      "type": "timeseries",
+      "title": "GPU reliability events",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 84,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "increase(DCGM_FI_DEV_PCIE_REPLAY_COUNTER{job=\"dcgm-exporter\",gpu=~\"$gpu\"}[5m])",
+          "legendFormat": "GPU {{gpu}} PCIe replays / 5m",
+          "refId": "A"
+        },
+        {
+          "expr": "increase(DCGM_FI_DEV_ECC_SBE_VOL_TOTAL{job=\"dcgm-exporter\",gpu=~\"$gpu\"}[5m])",
+          "legendFormat": "GPU {{gpu}} ECC single-bit / 5m",
+          "refId": "B"
+        },
+        {
+          "expr": "increase(DCGM_FI_DEV_ECC_DBE_VOL_TOTAL{job=\"dcgm-exporter\",gpu=~\"$gpu\"}[5m])",
+          "legendFormat": "GPU {{gpu}} ECC double-bit / 5m",
+          "refId": "C"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "description": "Non-zero double-bit ECC or sustained PCIe replay growth deserves investigation."
+    },
+    {
+      "id": 53,
+      "type": "row",
+      "title": "03 · All models combined · scheduler and throughput",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 92,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 54,
+      "type": "stat",
+      "title": "Running requests",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 93,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "(sum(vllm:num_requests_running{job=~\"vllm-(llm|stt)\"}) or vector(0)) + (sum(vllm_omni:num_requests_running{job=\"vllm-tts\"}) or vector(0))",
+          "legendFormat": "running",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 55,
+      "type": "stat",
+      "title": "Waiting requests",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 93,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "(sum(vllm:num_requests_waiting{job=~\"vllm-(llm|stt)\"}) or vector(0)) + (sum(vllm_omni:num_requests_waiting{job=\"vllm-tts\"}) or vector(0))",
+          "legendFormat": "waiting",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "yellow"
+              },
+              {
+                "value": 3,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 56,
+      "type": "stat",
+      "title": "Fleet KV cache · max",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 93,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "100 * max(vllm:kv_cache_usage_perc{job=~\"vllm-(llm|stt)\"})",
+          "legendFormat": "max",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "N/A",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 70,
+                "color": "yellow"
+              },
+              {
+                "value": 90,
+                "color": "red"
+              }
+            ]
+          },
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 57,
+      "type": "stat",
+      "title": "Preemptions · total",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 93,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum(vllm:num_preemptions_total{job=~\"vllm-(llm|stt)\"} or vllm:num_preemptions{job=~\"vllm-(llm|stt)\"})",
+          "legendFormat": "preemptions",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": "Cumulative scheduler preemptions since process start."
+    },
+    {
+      "id": 58,
+      "type": "stat",
+      "title": "Request throughput",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 93,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "(sum(rate(vllm:request_success_total{job=~\"vllm-(llm|stt)\"}[1m]) or rate(vllm:request_success{job=~\"vllm-(llm|stt)\"}[1m])) or vector(0)) + (sum(rate(vllm_omni:requests_success_total{job=\"vllm-tts\"}[1m]) or rate(vllm_omni:requests_success{job=\"vllm-tts\"}[1m])) or vector(0))",
+          "legendFormat": "requests",
           "refId": "A"
         }
       ],
@@ -125,155 +3037,23 @@
       "description": ""
     },
     {
-      "id": 4,
+      "id": 59,
       "type": "stat",
-      "title": "Running requests",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 8,
-        "y": 1,
-        "w": 4,
-        "h": 5
-      },
-      "targets": [
-        {
-          "expr": "sum by (model_service) (vllm:num_requests_running{job=~\"vllm-.*\",model_service=~\"$model\",inference_role!=\"tts\"}) or sum by (model_service) (vllm_omni:num_requests_running{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"})",
-          "legendFormat": "{{model_service}}",
-          "refId": "A"
-        }
-      ],
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "N/A"
-        },
-        "overrides": []
-      },
-      "description": ""
-    },
-    {
-      "id": 5,
-      "type": "stat",
-      "title": "Waiting requests",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 1,
-        "w": 4,
-        "h": 5
-      },
-      "targets": [
-        {
-          "expr": "sum by (model_service) (vllm:num_requests_waiting{job=~\"vllm-.*\",model_service=~\"$model\",inference_role!=\"tts\"}) or sum by (model_service) (vllm_omni:num_requests_waiting{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"})",
-          "legendFormat": "{{model_service}}",
-          "refId": "A"
-        }
-      ],
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "noValue": "N/A"
-        },
-        "overrides": []
-      },
-      "description": ""
-    },
-    {
-      "id": 6,
-      "type": "stat",
-      "title": "p95 end-to-end latency",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 16,
-        "y": 1,
-        "w": 4,
-        "h": 5
-      },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:e2e_request_latency_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role!=\"tts\"}[5m]))) or histogram_quantile(0.95, sum by (model_service, le) (rate(vllm_omni:e2e_request_latency_s_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[5m])))",
-          "legendFormat": "{{model_service}}",
-          "refId": "A"
-        }
-      ],
-      "options": {
-        "colorMode": "value",
-        "graphMode": "area",
-        "justifyMode": "auto",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "textMode": "auto"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "s",
-          "noValue": "N/A"
-        },
-        "overrides": []
-      },
-      "description": ""
-    },
-    {
-      "id": 7,
-      "type": "stat",
-      "title": "Output tokens / sec",
+      "title": "Output-token throughput",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 20,
-        "y": 1,
+        "y": 93,
         "w": 4,
         "h": 5
       },
       "targets": [
         {
-          "expr": "sum by (model_service) (rate(vllm:generation_tokens_total{job=~\"vllm-.*\",model_service=~\"$model\"}[1m]))",
-          "legendFormat": "{{model_service}}",
+          "expr": "sum(rate(vllm:generation_tokens_total{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[1m]) or rate(vllm:generation_tokens{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[1m]))",
+          "legendFormat": "tokens",
           "refId": "A"
         }
       ],
@@ -298,77 +3078,140 @@
         },
         "overrides": []
       },
-      "description": ""
+      "description": "Standard vLLM generation-token throughput; TTS audio is tracked separately."
     },
     {
-      "id": 8,
-      "type": "table",
-      "title": "Configured model and serving parameters",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 6,
-        "w": 24,
-        "h": 7
-      },
-      "targets": [
-        {
-          "expr": "max by (model_service, inference_role, model_repository, model_dtype, model_quantization, max_model_len, max_num_seqs, gpu_memory_utilization, execution_mode) (up{job=~\"vllm-.*\",model_service=~\"$model\"})",
-          "legendFormat": "",
-          "refId": "A",
-          "format": "table",
-          "instant": true
-        }
-      ],
-      "options": {
-        "showHeader": true,
-        "cellHeight": "sm"
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "description": "Static labels are defined beside each Prometheus target, so the dashboard exposes the model configuration even when there is no inference traffic.",
-      "transformations": [
-        {
-          "id": "labelsToFields",
-          "options": {}
-        }
-      ]
-    },
-    {
-      "id": 9,
-      "type": "row",
-      "title": "Traffic, throughput and request outcomes",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 13,
-        "w": 24,
-        "h": 1
-      },
-      "panels": []
-    },
-    {
-      "id": 10,
+      "id": 60,
       "type": "timeseries",
-      "title": "Completed request rate",
+      "title": "Running and waiting requests · all models",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 0,
-        "y": 14,
+        "y": 98,
         "w": 12,
         "h": 8
       },
       "targets": [
         {
-          "expr": "sum by (model_service) (rate(vllm:request_success_total{job=~\"vllm-.*\",model_service=~\"$model\",inference_role!=\"tts\"}[1m])) or sum by (model_service) (rate(vllm_omni:requests_success_total{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[1m]))",
+          "expr": "(sum(vllm:num_requests_running{job=~\"vllm-(llm|stt)\"}) or vector(0)) + (sum(vllm_omni:num_requests_running{job=\"vllm-tts\"}) or vector(0))",
+          "legendFormat": "running",
+          "refId": "A"
+        },
+        {
+          "expr": "(sum(vllm:num_requests_waiting{job=~\"vllm-(llm|stt)\"}) or vector(0)) + (sum(vllm_omni:num_requests_waiting{job=\"vllm-tts\"}) or vector(0))",
+          "legendFormat": "waiting",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 61,
+      "type": "timeseries",
+      "title": "Request throughput · all models",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 98,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "(sum(rate(vllm:request_success_total{job=~\"vllm-(llm|stt)\"}[1m]) or rate(vllm:request_success{job=~\"vllm-(llm|stt)\"}[1m])) or vector(0)) + (sum(rate(vllm_omni:requests_success_total{job=\"vllm-tts\"}[1m]) or rate(vllm_omni:requests_success{job=\"vllm-tts\"}[1m])) or vector(0))",
+          "legendFormat": "completed requests / sec",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "noValue": "N/A",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 62,
+      "type": "timeseries",
+      "title": "KV-cache utilization · per model",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 106,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "100 * max by (model_service) (vllm:kv_cache_usage_perc{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"})",
           "legendFormat": "{{model_service}}",
           "refId": "A"
         }
@@ -390,44 +3233,43 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "reqps",
+          "unit": "percent",
+          "noValue": "N/A",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "linear",
+            "lineInterpolation": "smooth",
             "lineWidth": 2,
-            "fillOpacity": 8,
+            "fillOpacity": 10,
             "showPoints": "never",
-            "spanNulls": true
-          }
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0,
+          "max": 100
         },
         "overrides": []
       },
-      "description": ""
+      "description": "KV cache is a token-model metric; TTS audio serving may use a different cache model."
     },
     {
-      "id": 11,
+      "id": 63,
       "type": "timeseries",
-      "title": "Request outcomes",
+      "title": "Scheduler preemptions",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 12,
-        "y": 14,
+        "y": 106,
         "w": 12,
         "h": 8
       },
       "targets": [
         {
-          "expr": "sum by (model_service, finished_reason) (rate(vllm:request_success_total{job=~\"vllm-.*\",model_service=~\"$model\",inference_role!=\"tts\"}[1m]))",
-          "legendFormat": "{{model_service}} / {{finished_reason}}",
+          "expr": "sum by (model_service) (rate(vllm:num_preemptions_total{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m]) or rate(vllm:num_preemptions{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])) * 60",
+          "legendFormat": "{{model_service}} / min",
           "refId": "A"
-        },
-        {
-          "expr": "sum by (model_service, finished_reason) (rate(vllm_omni:requests_success_total{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[1m]))",
-          "legendFormat": "{{model_service}} / {{finished_reason}}",
-          "refId": "B"
         }
       ],
       "options": {
@@ -447,42 +3289,45 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "reqps",
+          "unit": "ops",
+          "noValue": "N/A",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "linear",
+            "lineInterpolation": "smooth",
             "lineWidth": 2,
-            "fillOpacity": 8,
+            "fillOpacity": 10,
             "showPoints": "never",
-            "spanNulls": true
-          }
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
         },
         "overrides": []
       },
-      "description": ""
+      "description": "Sustained preemptions usually indicate KV/cache or scheduling pressure."
     },
     {
-      "id": 12,
+      "id": 64,
       "type": "timeseries",
-      "title": "Token throughput",
+      "title": "Token throughput · standard vLLM models",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 0,
-        "y": 22,
+        "y": 114,
         "w": 12,
         "h": 8
       },
       "targets": [
         {
-          "expr": "sum by (model_service) (rate(vllm:prompt_tokens_total{job=~\"vllm-.*\",model_service=~\"$model\"}[1m]))",
+          "expr": "sum by (model_service) (rate(vllm:prompt_tokens_total{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[1m]) or rate(vllm:prompt_tokens{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[1m]))",
           "legendFormat": "{{model_service}} input",
           "refId": "A"
         },
         {
-          "expr": "sum by (model_service) (rate(vllm:generation_tokens_total{job=~\"vllm-.*\",model_service=~\"$model\"}[1m]))",
+          "expr": "sum by (model_service) (rate(vllm:generation_tokens_total{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[1m]) or rate(vllm:generation_tokens{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[1m]))",
           "legendFormat": "{{model_service}} output",
           "refId": "B"
         }
@@ -505,43 +3350,41 @@
       "fieldConfig": {
         "defaults": {
           "unit": "tps",
+          "noValue": "N/A",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "linear",
+            "lineInterpolation": "smooth",
             "lineWidth": 2,
-            "fillOpacity": 8,
+            "fillOpacity": 10,
             "showPoints": "never",
-            "spanNulls": true
-          }
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
         },
         "overrides": []
       },
-      "description": "For ASR/TTS, token semantics are engine/model dependent. Audio-native performance is shown in the TTS section."
+      "description": ""
     },
     {
-      "id": 13,
+      "id": 65,
       "type": "timeseries",
-      "title": "HTTP request and server-error rate",
+      "title": "Waiting requests · reason",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 12,
-        "y": 22,
+        "y": 114,
         "w": 12,
         "h": 8
       },
       "targets": [
         {
-          "expr": "sum by (model_service) (rate(http_requests_total{job=~\"vllm-.*\",model_service=~\"$model\"}[1m]))",
-          "legendFormat": "{{model_service}} all",
+          "expr": "sum by (model_service, reason) (vllm:num_requests_waiting_by_reason{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"})",
+          "legendFormat": "{{model_service}} / {{reason}}",
           "refId": "A"
-        },
-        {
-          "expr": "sum by (model_service) (rate(http_requests_total{job=~\"vllm-.*\",model_service=~\"$model\",status=~\"5.*\"}[1m]))",
-          "legendFormat": "{{model_service}} 5xx",
-          "refId": "B"
         }
       ],
       "options": {
@@ -561,184 +3404,327 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "reqps",
+          "unit": "short",
+          "noValue": "N/A",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "linear",
+            "lineInterpolation": "smooth",
             "lineWidth": 2,
-            "fillOpacity": 8,
+            "fillOpacity": 10,
             "showPoints": "never",
-            "spanNulls": true
-          }
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
         },
         "overrides": []
       },
-      "description": ""
+      "description": "If supported by the installed vLLM version, distinguishes capacity waits from requests deferred by transient constraints."
     },
     {
-      "id": 14,
+      "id": 66,
       "type": "row",
-      "title": "Latency and phase breakdown",
+      "title": "04 · Per-model latency · TTFT, E2E, TPOT and ITL",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 30,
+        "y": 122,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 15,
-      "type": "timeseries",
-      "title": "End-to-end latency percentiles",
+      "id": 67,
+      "type": "stat",
+      "title": "TTFT · recent mean 1m",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 0,
-        "y": 31,
-        "w": 12,
-        "h": 8
+        "y": 123,
+        "w": 4,
+        "h": 5
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.5, sum by (model_service, le) (rate(vllm:e2e_request_latency_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role!=\"tts\"}[5m]))) or histogram_quantile(0.5, sum by (model_service, le) (rate(vllm_omni:e2e_request_latency_s_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[5m])))",
-          "legendFormat": "{{model_service}} p50",
+          "expr": "sum by (model_service) (rate(vllm:time_to_first_token_seconds_sum{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[1m])) / sum by (model_service) (rate(vllm:time_to_first_token_seconds_count{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[1m]))",
+          "legendFormat": "{{model_service}}",
           "refId": "A"
-        },
-        {
-          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:e2e_request_latency_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role!=\"tts\"}[5m]))) or histogram_quantile(0.95, sum by (model_service, le) (rate(vllm_omni:e2e_request_latency_s_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[5m])))",
-          "legendFormat": "{{model_service}} p95",
-          "refId": "B"
-        },
-        {
-          "expr": "histogram_quantile(0.99, sum by (model_service, le) (rate(vllm:e2e_request_latency_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role!=\"tts\"}[5m]))) or histogram_quantile(0.99, sum by (model_service, le) (rate(vllm_omni:e2e_request_latency_s_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[5m])))",
-          "legendFormat": "{{model_service}} p99",
-          "refId": "C"
         }
       ],
       "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
           "calcs": [
-            "lastNotNull",
-            "mean",
-            "max"
-          ]
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
+        "textMode": "auto"
       },
       "fieldConfig": {
         "defaults": {
           "unit": "s",
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true
-          }
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": "Reliable recent mean; not the literal last request."
+    },
+    {
+      "id": 68,
+      "type": "stat",
+      "title": "TTFT · rolling mean 5m",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 123,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm:time_to_first_token_seconds_sum{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])) / sum by (model_service) (rate(vllm:time_to_first_token_seconds_count{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m]))",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "N/A"
         },
         "overrides": []
       },
       "description": ""
     },
     {
-      "id": 16,
-      "type": "timeseries",
-      "title": "Time to first token (TTFT)",
+      "id": 69,
+      "type": "stat",
+      "title": "E2E · recent mean 1m",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 123,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm:e2e_request_latency_seconds_sum{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[1m])) / sum by (model_service) (rate(vllm:e2e_request_latency_seconds_count{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[1m])) or sum by (model_service) (rate(vllm_omni:e2e_request_latency_s_sum{job=\"vllm-tts\",model_service=~\"$model\"}[1m])) / sum by (model_service) (rate(vllm_omni:e2e_request_latency_s_count{job=\"vllm-tts\",model_service=~\"$model\"}[1m]))",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": "Recent mean across standard vLLM or vLLM-Omni E2E histograms."
+    },
+    {
+      "id": 70,
+      "type": "stat",
+      "title": "E2E · rolling mean 5m",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 12,
-        "y": 31,
-        "w": 12,
-        "h": 8
+        "y": 123,
+        "w": 4,
+        "h": 5
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum by (model_service, le) (rate(vllm:time_to_first_token_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
-          "legendFormat": "{{model_service}} p50",
+          "expr": "sum by (model_service) (rate(vllm:e2e_request_latency_seconds_sum{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])) / sum by (model_service) (rate(vllm:e2e_request_latency_seconds_count{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])) or sum by (model_service) (rate(vllm_omni:e2e_request_latency_s_sum{job=\"vllm-tts\",model_service=~\"$model\"}[5m])) / sum by (model_service) (rate(vllm_omni:e2e_request_latency_s_count{job=\"vllm-tts\",model_service=~\"$model\"}[5m]))",
+          "legendFormat": "{{model_service}}",
           "refId": "A"
-        },
-        {
-          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:time_to_first_token_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
-          "legendFormat": "{{model_service}} p95",
-          "refId": "B"
-        },
-        {
-          "expr": "histogram_quantile(0.99, sum by (model_service, le) (rate(vllm:time_to_first_token_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
-          "legendFormat": "{{model_service}} p99",
-          "refId": "C"
         }
       ],
       "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
           "calcs": [
-            "lastNotNull",
-            "mean",
-            "max"
-          ]
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
         },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
+        "textMode": "auto"
       },
       "fieldConfig": {
         "defaults": {
           "unit": "s",
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true
-          }
+          "noValue": "N/A"
         },
         "overrides": []
       },
       "description": ""
     },
     {
-      "id": 17,
+      "id": 71,
+      "type": "stat",
+      "title": "TPOT · recent mean 1m",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 123,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm:request_time_per_output_token_seconds_sum{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[1m])) / sum by (model_service) (rate(vllm:request_time_per_output_token_seconds_count{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[1m]))",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": "Per-request time per output token. Applies to engines exposing token metrics."
+    },
+    {
+      "id": 72,
+      "type": "stat",
+      "title": "TPOT · rolling mean 5m",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 123,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm:request_time_per_output_token_seconds_sum{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])) / sum by (model_service) (rate(vllm:request_time_per_output_token_seconds_count{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m]))",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 73,
       "type": "timeseries",
-      "title": "Inter-token latency / TPOT",
+      "title": "TTFT · mean and tail",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 0,
-        "y": 39,
+        "y": 128,
         "w": 12,
         "h": 8
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum by (model_service, le) (rate(vllm:inter_token_latency_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
-          "legendFormat": "{{model_service}} p50",
+          "expr": "sum by (model_service) (rate(vllm:time_to_first_token_seconds_sum{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])) / sum by (model_service) (rate(vllm:time_to_first_token_seconds_count{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m]))",
+          "legendFormat": "{{model_service}} mean",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:inter_token_latency_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:time_to_first_token_seconds_bucket{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])))",
           "legendFormat": "{{model_service}} p95",
           "refId": "B"
         },
         {
-          "expr": "histogram_quantile(0.99, sum by (model_service, le) (rate(vllm:inter_token_latency_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (model_service, le) (rate(vllm:time_to_first_token_seconds_bucket{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])))",
           "legendFormat": "{{model_service}} p99",
           "refId": "C"
         }
@@ -761,46 +3747,49 @@
       "fieldConfig": {
         "defaults": {
           "unit": "s",
+          "noValue": "N/A",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "linear",
+            "lineInterpolation": "smooth",
             "lineWidth": 2,
-            "fillOpacity": 8,
+            "fillOpacity": 10,
             "showPoints": "never",
-            "spanNulls": true
-          }
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
         },
         "overrides": []
       },
       "description": ""
     },
     {
-      "id": 18,
+      "id": 74,
       "type": "timeseries",
-      "title": "Queue latency",
+      "title": "End-to-end latency · mean and tail",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 12,
-        "y": 39,
+        "y": 128,
         "w": 12,
         "h": 8
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum by (model_service, le) (rate(vllm:request_queue_time_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
-          "legendFormat": "{{model_service}} p50",
+          "expr": "sum by (model_service) (rate(vllm:e2e_request_latency_seconds_sum{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])) / sum by (model_service) (rate(vllm:e2e_request_latency_seconds_count{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])) or sum by (model_service) (rate(vllm_omni:e2e_request_latency_s_sum{job=\"vllm-tts\",model_service=~\"$model\"}[5m])) / sum by (model_service) (rate(vllm_omni:e2e_request_latency_s_count{job=\"vllm-tts\",model_service=~\"$model\"}[5m]))",
+          "legendFormat": "{{model_service}} mean",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:request_queue_time_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:e2e_request_latency_seconds_bucket{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m]))) or histogram_quantile(0.95, sum by (model_service, le) (rate(vllm_omni:e2e_request_latency_s_bucket{job=\"vllm-tts\",model_service=~\"$model\"}[5m])))",
           "legendFormat": "{{model_service}} p95",
           "refId": "B"
         },
         {
-          "expr": "histogram_quantile(0.99, sum by (model_service, le) (rate(vllm:request_queue_time_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (model_service, le) (rate(vllm:e2e_request_latency_seconds_bucket{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m]))) or histogram_quantile(0.99, sum by (model_service, le) (rate(vllm_omni:e2e_request_latency_s_bucket{job=\"vllm-tts\",model_service=~\"$model\"}[5m])))",
           "legendFormat": "{{model_service}} p99",
           "refId": "C"
         }
@@ -823,43 +3812,51 @@
       "fieldConfig": {
         "defaults": {
           "unit": "s",
+          "noValue": "N/A",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "linear",
+            "lineInterpolation": "smooth",
             "lineWidth": 2,
-            "fillOpacity": 8,
+            "fillOpacity": 10,
             "showPoints": "never",
-            "spanNulls": true
-          }
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
         },
         "overrides": []
       },
       "description": ""
     },
     {
-      "id": 19,
+      "id": 75,
       "type": "timeseries",
-      "title": "Prefill latency",
+      "title": "TPOT · mean and tail",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 0,
-        "y": 47,
+        "y": 136,
         "w": 12,
         "h": 8
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum by (model_service, le) (rate(vllm:request_prefill_time_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
-          "legendFormat": "{{model_service}} p50",
+          "expr": "sum by (model_service) (rate(vllm:request_time_per_output_token_seconds_sum{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])) / sum by (model_service) (rate(vllm:request_time_per_output_token_seconds_count{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m]))",
+          "legendFormat": "{{model_service}} mean",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:request_prefill_time_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:request_time_per_output_token_seconds_bucket{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])))",
           "legendFormat": "{{model_service}} p95",
           "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (model_service, le) (rate(vllm:request_time_per_output_token_seconds_bucket{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p99",
+          "refId": "C"
         }
       ],
       "options": {
@@ -880,43 +3877,51 @@
       "fieldConfig": {
         "defaults": {
           "unit": "s",
+          "noValue": "N/A",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "linear",
+            "lineInterpolation": "smooth",
             "lineWidth": 2,
-            "fillOpacity": 8,
+            "fillOpacity": 10,
             "showPoints": "never",
-            "spanNulls": true
-          }
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
         },
         "overrides": []
       },
       "description": ""
     },
     {
-      "id": 20,
+      "id": 76,
       "type": "timeseries",
-      "title": "Decode latency",
+      "title": "Inter-token latency · mean and tail",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 12,
-        "y": 47,
+        "y": 136,
         "w": 12,
         "h": 8
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum by (model_service, le) (rate(vllm:request_decode_time_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
-          "legendFormat": "{{model_service}} p50",
+          "expr": "sum by (model_service) (rate(vllm:inter_token_latency_seconds_sum{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])) / sum by (model_service) (rate(vllm:inter_token_latency_seconds_count{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m]))",
+          "legendFormat": "{{model_service}} mean",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:request_decode_time_seconds_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:inter_token_latency_seconds_bucket{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])))",
           "legendFormat": "{{model_service}} p95",
           "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (model_service, le) (rate(vllm:inter_token_latency_seconds_bucket{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p99",
+          "refId": "C"
         }
       ],
       "options": {
@@ -937,54 +3942,518 @@
       "fieldConfig": {
         "defaults": {
           "unit": "s",
+          "noValue": "N/A",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "linear",
+            "lineInterpolation": "smooth",
             "lineWidth": 2,
-            "fillOpacity": 8,
+            "fillOpacity": 10,
             "showPoints": "never",
-            "spanNulls": true
-          }
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
         },
         "overrides": []
       },
-      "description": ""
+      "description": "ITL is the gap between successive streamed output events."
     },
     {
-      "id": 21,
+      "id": 77,
       "type": "row",
-      "title": "Scheduler, cache and request shape",
+      "title": "05 · Per-model queue, prefill and decode",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 55,
+        "y": 144,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 22,
-      "type": "timeseries",
-      "title": "Running and waiting requests",
+      "id": 78,
+      "type": "stat",
+      "title": "Waiting now",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 0,
-        "y": 56,
+        "y": 145,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (vllm:num_requests_waiting{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}) or sum by (model_service) (vllm_omni:num_requests_waiting{job=\"vllm-tts\",model_service=~\"$model\"})",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 1,
+                "color": "yellow"
+              },
+              {
+                "value": 3,
+                "color": "red"
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 79,
+      "type": "stat",
+      "title": "Queue · mean 5m",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 145,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm:request_queue_time_seconds_sum{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])) / sum by (model_service) (rate(vllm:request_queue_time_seconds_count{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m]))",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 80,
+      "type": "stat",
+      "title": "Prefill · recent mean 1m",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 145,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm:request_prefill_time_seconds_sum{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[1m])) / sum by (model_service) (rate(vllm:request_prefill_time_seconds_count{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[1m]))",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": "Recent mean; not exact last request."
+    },
+    {
+      "id": 81,
+      "type": "stat",
+      "title": "Prefill · mean 5m",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 145,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm:request_prefill_time_seconds_sum{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])) / sum by (model_service) (rate(vllm:request_prefill_time_seconds_count{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m]))",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 82,
+      "type": "stat",
+      "title": "Decode · recent mean 1m",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 145,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm:request_decode_time_seconds_sum{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[1m])) / sum by (model_service) (rate(vllm:request_decode_time_seconds_count{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[1m]))",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": "Recent mean; not exact last request."
+    },
+    {
+      "id": 83,
+      "type": "stat",
+      "title": "Decode · mean 5m",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 145,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm:request_decode_time_seconds_sum{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])) / sum by (model_service) (rate(vllm:request_decode_time_seconds_count{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m]))",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 84,
+      "type": "timeseries",
+      "title": "Queue time · mean and p95",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 150,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm:request_queue_time_seconds_sum{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])) / sum by (model_service) (rate(vllm:request_queue_time_seconds_count{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m]))",
+          "legendFormat": "{{model_service}} mean",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:request_queue_time_seconds_bucket{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p95",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "N/A",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 85,
+      "type": "timeseries",
+      "title": "Prefill time · mean and p95",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 150,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm:request_prefill_time_seconds_sum{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])) / sum by (model_service) (rate(vllm:request_prefill_time_seconds_count{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m]))",
+          "legendFormat": "{{model_service}} mean",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:request_prefill_time_seconds_bucket{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p95",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "N/A",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 86,
+      "type": "timeseries",
+      "title": "Decode time · mean and p95",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 150,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm:request_decode_time_seconds_sum{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])) / sum by (model_service) (rate(vllm:request_decode_time_seconds_count{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m]))",
+          "legendFormat": "{{model_service}} mean",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:request_decode_time_seconds_bucket{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p95",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "N/A",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 87,
+      "type": "timeseries",
+      "title": "Running / waiting · per model",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 158,
         "w": 12,
         "h": 8
       },
       "targets": [
         {
-          "expr": "sum by (model_service) (vllm:num_requests_running{job=~\"vllm-.*\",model_service=~\"$model\",inference_role!=\"tts\"}) or sum by (model_service) (vllm_omni:num_requests_running{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"})",
+          "expr": "sum by (model_service) (vllm:num_requests_running{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}) or sum by (model_service) (vllm_omni:num_requests_running{job=\"vllm-tts\",model_service=~\"$model\"})",
           "legendFormat": "{{model_service}} running",
           "refId": "A"
         },
         {
-          "expr": "sum by (model_service) (vllm:num_requests_waiting{job=~\"vllm-.*\",model_service=~\"$model\",inference_role!=\"tts\"}) or sum by (model_service) (vllm_omni:num_requests_waiting{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"})",
+          "expr": "sum by (model_service) (vllm:num_requests_waiting{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}) or sum by (model_service) (vllm_omni:num_requests_waiting{job=\"vllm-tts\",model_service=~\"$model\"})",
           "legendFormat": "{{model_service}} waiting",
           "refId": "B"
         }
@@ -1007,36 +4476,457 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
+          "noValue": "N/A",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "linear",
+            "lineInterpolation": "smooth",
             "lineWidth": 2,
-            "fillOpacity": 8,
+            "fillOpacity": 10,
             "showPoints": "never",
-            "spanNulls": true
-          }
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
         },
         "overrides": []
       },
       "description": ""
     },
     {
-      "id": 23,
+      "id": 88,
       "type": "timeseries",
-      "title": "KV-cache utilization",
+      "title": "Inference running-phase time",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 12,
-        "y": 56,
+        "y": 158,
         "w": 12,
         "h": 8
       },
       "targets": [
         {
-          "expr": "max by (model_service) (vllm:kv_cache_usage_perc{job=~\"vllm-.*\",model_service=~\"$model\"})",
+          "expr": "sum by (model_service) (rate(vllm:request_inference_time_seconds_sum{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])) / sum by (model_service) (rate(vllm:request_inference_time_seconds_count{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m]))",
+          "legendFormat": "{{model_service}} mean",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:request_inference_time_seconds_bucket{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p95",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "N/A",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "description": "Time in the model RUNNING phase, useful alongside queue/prefill/decode to isolate scheduler vs execution delay."
+    },
+    {
+      "id": 89,
+      "type": "row",
+      "title": "06 · Per-model tokens, KV cache and request shape",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 166,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 90,
+      "type": "stat",
+      "title": "Generated tokens · total",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 167,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (vllm:generation_tokens_total{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"} or vllm:generation_tokens{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"})",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": "Cumulative generated tokens since model-server process start."
+    },
+    {
+      "id": 91,
+      "type": "stat",
+      "title": "Generated tokens / request · mean 5m",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 167,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm:request_generation_tokens_sum{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])) / sum by (model_service) (rate(vllm:request_generation_tokens_count{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m]))",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": "Reliable rolling per-request mean; exact last request requires request-level instrumentation."
+    },
+    {
+      "id": 92,
+      "type": "stat",
+      "title": "Prompt tokens · total",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 167,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (vllm:prompt_tokens_total{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"} or vllm:prompt_tokens{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"})",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 93,
+      "type": "stat",
+      "title": "Prompt tokens / request · mean 5m",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 167,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm:request_prompt_tokens_sum{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])) / sum by (model_service) (rate(vllm:request_prompt_tokens_count{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m]))",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 94,
+      "type": "stat",
+      "title": "KV cache utilization",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 167,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "100 * max by (model_service) (vllm:kv_cache_usage_perc{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"})",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "N/A",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "value": null,
+                "color": "green"
+              },
+              {
+                "value": 70,
+                "color": "yellow"
+              },
+              {
+                "value": 90,
+                "color": "red"
+              }
+            ]
+          },
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 95,
+      "type": "stat",
+      "title": "Prefix-cache hit ratio",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 167,
+        "w": 4,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "100 * sum by (model_service) (rate(vllm:prefix_cache_hits{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])) / sum by (model_service) (rate(vllm:prefix_cache_queries{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m]))",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "N/A",
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 96,
+      "type": "timeseries",
+      "title": "Prompt and output token throughput",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 172,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm:prompt_tokens_total{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[1m]) or rate(vllm:prompt_tokens{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[1m]))",
+          "legendFormat": "{{model_service}} prompt",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (model_service) (rate(vllm:generation_tokens_total{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[1m]) or rate(vllm:generation_tokens{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[1m]))",
+          "legendFormat": "{{model_service}} generated",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "tps",
+          "noValue": "N/A",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 97,
+      "type": "timeseries",
+      "title": "Request throughput · per model",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 172,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm:request_success_total{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[1m]) or rate(vllm:request_success{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[1m])) or sum by (model_service) (rate(vllm_omni:requests_success_total{job=\"vllm-tts\",model_service=~\"$model\"}[1m]) or rate(vllm_omni:requests_success{job=\"vllm-tts\",model_service=~\"$model\"}[1m]))",
           "legendFormat": "{{model_service}}",
           "refId": "A"
         }
@@ -1058,38 +4948,412 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit",
+          "unit": "reqps",
+          "noValue": "N/A",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "linear",
+            "lineInterpolation": "smooth",
             "lineWidth": 2,
-            "fillOpacity": 8,
+            "fillOpacity": 10,
             "showPoints": "never",
-            "spanNulls": true
-          }
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
         },
         "overrides": []
       },
       "description": ""
     },
     {
-      "id": 24,
+      "id": 98,
       "type": "timeseries",
-      "title": "Scheduler preemptions",
+      "title": "Prompt tokens / request · distribution",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 0,
-        "y": 64,
+        "y": 180,
         "w": 12,
         "h": 8
       },
       "targets": [
         {
-          "expr": "sum by (model_service) (rate(vllm:num_preemptions_total{job=~\"vllm-.*\",model_service=~\"$model\"}[1m]))",
+          "expr": "histogram_quantile(0.5, sum by (model_service, le) (rate(vllm:request_prompt_tokens_bucket{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:request_prompt_tokens_bucket{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (model_service, le) (rate(vllm:request_prompt_tokens_bucket{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p99",
+          "refId": "C"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "description": "Prompt length is a major driver of TTFT and prefill cost."
+    },
+    {
+      "id": 99,
+      "type": "timeseries",
+      "title": "Generated tokens / request · distribution",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 180,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.5, sum by (model_service, le) (rate(vllm:request_generation_tokens_bucket{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:request_generation_tokens_bucket{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (model_service, le) (rate(vllm:request_generation_tokens_bucket{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p99",
+          "refId": "C"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "description": "Output length is a major driver of E2E latency and decode occupancy."
+    },
+    {
+      "id": 100,
+      "type": "timeseries",
+      "title": "KV-cache utilization",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 188,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "100 * max by (model_service) (vllm:kv_cache_usage_perc{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"})",
           "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "N/A",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 101,
+      "type": "timeseries",
+      "title": "Prefix-cache efficiency",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 188,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "100 * sum by (model_service) (rate(vllm:prefix_cache_hits{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])) / sum by (model_service) (rate(vllm:prefix_cache_queries{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m]))",
+          "legendFormat": "{{model_service}} hit ratio",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "noValue": "N/A",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0,
+          "max": 100
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "07 · Model reliability and outcomes",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 196,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 103,
+      "type": "timeseries",
+      "title": "Model scrape health",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 197,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "up{job=~\"vllm-.*\",model_service=~\"$model\"}",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 104,
+      "type": "timeseries",
+      "title": "Completed requests by finish reason",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 197,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service, finished_reason) (rate(vllm:request_success_total{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[1m]))",
+          "legendFormat": "{{model_service}} / {{finished_reason}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (model_service, finished_reason) (rate(vllm_omni:requests_success_total{job=\"vllm-tts\",model_service=~\"$model\"}[1m]))",
+          "legendFormat": "{{model_service}} / {{finished_reason}}",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "lastNotNull",
+            "mean",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "noValue": "N/A",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 105,
+      "type": "timeseries",
+      "title": "Corrupted / NaN requests",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 197,
+        "w": 8,
+        "h": 8
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm:corrupted_requests_total{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m]) or rate(vllm:corrupted_requests{job=~\"vllm-(llm|stt)\",model_service=~\"$model\"}[5m])) * 60",
+          "legendFormat": "{{model_service}} / min",
           "refId": "A"
         }
       ],
@@ -1111,200 +5375,252 @@
       "fieldConfig": {
         "defaults": {
           "unit": "ops",
+          "noValue": "N/A",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "linear",
+            "lineInterpolation": "smooth",
             "lineWidth": 2,
-            "fillOpacity": 8,
+            "fillOpacity": 10,
             "showPoints": "never",
-            "spanNulls": true
-          }
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
         },
         "overrides": []
       },
-      "description": ""
+      "description": "Available when vLLM is configured to compute/report NaNs in logits. Any sustained non-zero value is a reliability signal."
     },
     {
-      "id": 25,
-      "type": "timeseries",
-      "title": "Prefix-cache hit ratio",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 64,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "expr": "sum by (model_service) (rate(vllm:prefix_cache_hits{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])) / clamp_min(sum by (model_service) (rate(vllm:prefix_cache_queries{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])), 0.000001)",
-          "legendFormat": "{{model_service}}",
-          "refId": "A"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "mean",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true
-          }
-        },
-        "overrides": []
-      },
-      "description": ""
-    },
-    {
-      "id": 26,
-      "type": "timeseries",
-      "title": "Prompt-token distribution",
+      "id": 106,
+      "type": "table",
+      "title": "Configured model and serving parameters",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 0,
-        "y": 72,
-        "w": 12,
-        "h": 8
+        "y": 205,
+        "w": 24,
+        "h": 7
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum by (model_service, le) (rate(vllm:request_prompt_tokens_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
-          "legendFormat": "{{model_service}} p50",
-          "refId": "A"
-        },
-        {
-          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:request_prompt_tokens_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
-          "legendFormat": "{{model_service}} p95",
-          "refId": "B"
+          "expr": "max by (model_service, inference_role, model_repository, model_dtype, model_quantization, max_model_len, max_num_seqs, gpu_memory_utilization, enforce_eager) (up{job=~\"vllm-.*\",model_service=~\"$model\"})",
+          "legendFormat": "",
+          "refId": "A",
+          "format": "table",
+          "instant": true
         }
       ],
       "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "mean",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
+        "showHeader": true,
+        "cellHeight": "sm"
       },
       "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true
-          }
-        },
+        "defaults": {},
         "overrides": []
       },
-      "description": ""
+      "description": "Static labels are sourced from the Compose Prometheus scrape configuration so the dashboard shows runtime model configuration without hardcoding model names in the dashboard.",
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {}
+        }
+      ]
     },
     {
-      "id": 27,
-      "type": "timeseries",
-      "title": "Generated-token distribution",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 72,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "expr": "histogram_quantile(0.50, sum by (model_service, le) (rate(vllm:request_generation_tokens_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
-          "legendFormat": "{{model_service}} p50",
-          "refId": "A"
-        },
-        {
-          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm:request_generation_tokens_bucket{job=~\"vllm-.*\",model_service=~\"$model\"}[5m])))",
-          "legendFormat": "{{model_service}} p95",
-          "refId": "B"
-        }
-      ],
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "lastNotNull",
-            "mean",
-            "max"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "short",
-          "custom": {
-            "drawStyle": "line",
-            "lineInterpolation": "linear",
-            "lineWidth": 2,
-            "fillOpacity": 8,
-            "showPoints": "never",
-            "spanNulls": true
-          }
-        },
-        "overrides": []
-      },
-      "description": ""
-    },
-    {
-      "id": 28,
+      "id": 107,
       "type": "row",
-      "title": "TTS / vLLM-Omni audio metrics",
+      "title": "08 · TTS / vLLM-Omni audio quality",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 80,
+        "y": 212,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 29,
+      "id": 108,
+      "type": "stat",
+      "title": "Audio TTFP · mean 5m",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 213,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm_omni:audio_ttfp_s_sum{job=\"vllm-tts\",model_service=~\"$model\"}[5m])) / sum by (model_service) (rate(vllm_omni:audio_ttfp_s_count{job=\"vllm-tts\",model_service=~\"$model\"}[5m]))",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": "Audio time-to-first-packet, the TTS analogue of TTFT."
+    },
+    {
+      "id": 109,
+      "type": "stat",
+      "title": "Audio RTF · mean 5m",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 213,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm_omni:audio_rtf_sum{job=\"vllm-tts\",model_service=~\"$model\"}[5m])) / sum by (model_service) (rate(vllm_omni:audio_rtf_count{job=\"vllm-tts\",model_service=~\"$model\"}[5m]))",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": "Real-time factor. Below 1 means synthesis is faster than playback."
+    },
+    {
+      "id": 110,
+      "type": "stat",
+      "title": "Audio underrun · p95",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 213,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm_omni:audio_underrun_s_bucket{job=\"vllm-tts\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": "Streaming gaps audible to a listener."
+    },
+    {
+      "id": 111,
+      "type": "stat",
+      "title": "TTS request throughput",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 213,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "expr": "sum by (model_service) (rate(vllm_omni:requests_success_total{job=\"vllm-tts\",model_service=~\"$model\"}[1m]) or rate(vllm_omni:requests_success{job=\"vllm-tts\",model_service=~\"$model\"}[1m]))",
+          "legendFormat": "{{model_service}}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "noValue": "N/A"
+        },
+        "overrides": []
+      },
+      "description": ""
+    },
+    {
+      "id": 112,
       "type": "timeseries",
       "title": "Audio time to first packet",
       "datasource": {
@@ -1313,20 +5629,25 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 81,
+        "y": 218,
         "w": 12,
         "h": 8
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum by (model_service, le) (rate(vllm_omni:audio_ttfp_s_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[5m])))",
-          "legendFormat": "{{model_service}} p50",
+          "expr": "sum by (model_service) (rate(vllm_omni:audio_ttfp_s_sum{job=\"vllm-tts\",model_service=~\"$model\"}[5m])) / sum by (model_service) (rate(vllm_omni:audio_ttfp_s_count{job=\"vllm-tts\",model_service=~\"$model\"}[5m]))",
+          "legendFormat": "{{model_service}} mean",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm_omni:audio_ttfp_s_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm_omni:audio_ttfp_s_bucket{job=\"vllm-tts\",model_service=~\"$model\"}[5m])))",
           "legendFormat": "{{model_service}} p95",
           "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (model_service, le) (rate(vllm_omni:audio_ttfp_s_bucket{job=\"vllm-tts\",model_service=~\"$model\"}[5m])))",
+          "legendFormat": "{{model_service}} p99",
+          "refId": "C"
         }
       ],
       "options": {
@@ -1347,21 +5668,24 @@
       "fieldConfig": {
         "defaults": {
           "unit": "s",
+          "noValue": "N/A",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "linear",
+            "lineInterpolation": "smooth",
             "lineWidth": 2,
-            "fillOpacity": 8,
+            "fillOpacity": 10,
             "showPoints": "never",
-            "spanNulls": true
-          }
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
         },
         "overrides": []
       },
       "description": ""
     },
     {
-      "id": 30,
+      "id": 113,
       "type": "timeseries",
       "title": "Audio real-time factor",
       "datasource": {
@@ -1370,18 +5694,18 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 81,
+        "y": 218,
         "w": 12,
         "h": 8
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum by (model_service, le) (rate(vllm_omni:audio_rtf_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[5m])))",
-          "legendFormat": "{{model_service}} p50",
+          "expr": "sum by (model_service) (rate(vllm_omni:audio_rtf_sum{job=\"vllm-tts\",model_service=~\"$model\"}[5m])) / sum by (model_service) (rate(vllm_omni:audio_rtf_count{job=\"vllm-tts\",model_service=~\"$model\"}[5m]))",
+          "legendFormat": "{{model_service}} mean",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm_omni:audio_rtf_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm_omni:audio_rtf_bucket{job=\"vllm-tts\",model_service=~\"$model\"}[5m])))",
           "legendFormat": "{{model_service}} p95",
           "refId": "B"
         }
@@ -1404,21 +5728,24 @@
       "fieldConfig": {
         "defaults": {
           "unit": "short",
+          "noValue": "N/A",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "linear",
+            "lineInterpolation": "smooth",
             "lineWidth": 2,
-            "fillOpacity": 8,
+            "fillOpacity": 10,
             "showPoints": "never",
-            "spanNulls": true
-          }
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
         },
         "overrides": []
       },
-      "description": "RTF below 1 means audio is generated faster than real time."
+      "description": "RTF < 1 is faster than real time; RTF > 1 cannot keep up with playback without buffering."
     },
     {
-      "id": 31,
+      "id": 114,
       "type": "timeseries",
       "title": "Generated audio duration",
       "datasource": {
@@ -1427,18 +5754,18 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 89,
+        "y": 226,
         "w": 12,
         "h": 8
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum by (model_service, le) (rate(vllm_omni:audio_duration_s_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[5m])))",
+          "expr": "histogram_quantile(0.5, sum by (model_service, le) (rate(vllm_omni:audio_duration_s_bucket{job=\"vllm-tts\",model_service=~\"$model\"}[5m])))",
           "legendFormat": "{{model_service}} p50",
           "refId": "A"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm_omni:audio_duration_s_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm_omni:audio_duration_s_bucket{job=\"vllm-tts\",model_service=~\"$model\"}[5m])))",
           "legendFormat": "{{model_service}} p95",
           "refId": "B"
         }
@@ -1461,21 +5788,24 @@
       "fieldConfig": {
         "defaults": {
           "unit": "s",
+          "noValue": "N/A",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "linear",
+            "lineInterpolation": "smooth",
             "lineWidth": 2,
-            "fillOpacity": 8,
+            "fillOpacity": 10,
             "showPoints": "never",
-            "spanNulls": true
-          }
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
         },
         "overrides": []
       },
       "description": ""
     },
     {
-      "id": 32,
+      "id": 115,
       "type": "timeseries",
       "title": "Audio underrun",
       "datasource": {
@@ -1484,13 +5814,13 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 89,
+        "y": 226,
         "w": 12,
         "h": 8
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm_omni:audio_underrun_s_bucket{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (model_service, le) (rate(vllm_omni:audio_underrun_s_bucket{job=\"vllm-tts\",model_service=~\"$model\"}[5m])))",
           "legendFormat": "{{model_service}} p95",
           "refId": "A"
         }
@@ -1513,21 +5843,24 @@
       "fieldConfig": {
         "defaults": {
           "unit": "s",
+          "noValue": "N/A",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "linear",
+            "lineInterpolation": "smooth",
             "lineWidth": 2,
-            "fillOpacity": 8,
+            "fillOpacity": 10,
             "showPoints": "never",
-            "spanNulls": true
-          }
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
         },
         "overrides": []
       },
-      "description": "Values above 0 indicate that a streaming listener would hear a gap."
+      "description": ""
     },
     {
-      "id": 33,
+      "id": 116,
       "type": "timeseries",
       "title": "Audio frames generated / sec",
       "datasource": {
@@ -1536,13 +5869,13 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 97,
+        "y": 234,
         "w": 12,
         "h": 8
       },
       "targets": [
         {
-          "expr": "sum by (model_service) (rate(vllm_omni:audio_frames_total{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[1m]))",
+          "expr": "sum by (model_service) (rate(vllm_omni:audio_frames_total{job=\"vllm-tts\",model_service=~\"$model\"}[1m]))",
           "legendFormat": "{{model_service}}",
           "refId": "A"
         }
@@ -1565,21 +5898,24 @@
       "fieldConfig": {
         "defaults": {
           "unit": "ops",
+          "noValue": "N/A",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "linear",
+            "lineInterpolation": "smooth",
             "lineWidth": 2,
-            "fillOpacity": 8,
+            "fillOpacity": 10,
             "showPoints": "never",
-            "spanNulls": true
-          }
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
         },
         "overrides": []
       },
       "description": ""
     },
     {
-      "id": 34,
+      "id": 117,
       "type": "timeseries",
       "title": "TTS failures and skipped audio",
       "datasource": {
@@ -1588,18 +5924,18 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 97,
+        "y": 234,
         "w": 12,
         "h": 8
       },
       "targets": [
         {
-          "expr": "sum by (model_service, reason) (rate(vllm_omni:requests_failed_total{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[1m]))",
+          "expr": "sum by (model_service, reason) (rate(vllm_omni:requests_failed_total{job=\"vllm-tts\",model_service=~\"$model\"}[1m]))",
           "legendFormat": "{{model_service}} failed / {{reason}}",
           "refId": "A"
         },
         {
-          "expr": "sum by (model_service, reason) (rate(vllm_omni:audio_skipped_requests_total{job=~\"vllm-.*\",model_service=~\"$model\",inference_role=\"tts\"}[1m]))",
+          "expr": "sum by (model_service, reason) (rate(vllm_omni:audio_skipped_requests_total{job=\"vllm-tts\",model_service=~\"$model\"}[1m]))",
           "legendFormat": "{{model_service}} skipped / {{reason}}",
           "refId": "B"
         }
@@ -1622,14 +5958,17 @@
       "fieldConfig": {
         "defaults": {
           "unit": "reqps",
+          "noValue": "N/A",
           "custom": {
             "drawStyle": "line",
-            "lineInterpolation": "linear",
+            "lineInterpolation": "smooth",
             "lineWidth": 2,
-            "fillOpacity": 8,
+            "fillOpacity": 10,
             "showPoints": "never",
-            "spanNulls": true
-          }
+            "spanNulls": false,
+            "axisCenteredZero": false
+          },
+          "min": 0
         },
         "overrides": []
       },
@@ -1639,11 +5978,13 @@
   "refresh": "5s",
   "schemaVersion": 39,
   "tags": [
+    "echolex",
     "vllm",
     "inference",
-    "llm",
-    "stt",
-    "tts"
+    "gpu",
+    "dcgm",
+    "node-exporter",
+    "reliability"
   ],
   "templating": {
     "list": [
@@ -1670,6 +6011,30 @@
           "text": "All",
           "value": "$__all"
         }
+      },
+      {
+        "name": "gpu",
+        "label": "GPU",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "prometheus"
+        },
+        "definition": "label_values(DCGM_FI_DEV_GPU_UTIL{job=\"dcgm-exporter\"}, gpu)",
+        "query": {
+          "query": "label_values(DCGM_FI_DEV_GPU_UTIL{job=\"dcgm-exporter\"}, gpu)",
+          "refId": "PrometheusVariableQueryEditor-GPU"
+        },
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "refresh": 1,
+        "sort": 1,
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        }
       }
     ]
   },
@@ -1677,10 +6042,30 @@
     "from": "now-30m",
     "to": "now"
   },
-  "timepicker": {},
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m"
+    ],
+    "time_options": [
+      "5m",
+      "15m",
+      "30m",
+      "1h",
+      "3h",
+      "6h",
+      "12h",
+      "24h",
+      "2d",
+      "7d"
+    ]
+  },
   "timezone": "browser",
-  "title": "Model Inference Observability",
-  "uid": "model-inference-observability",
+  "title": "Echolex · Inference & GPU Reliability",
+  "uid": "echolex-inference-gpu-reliability",
   "version": 1,
   "weekStart": ""
 }
